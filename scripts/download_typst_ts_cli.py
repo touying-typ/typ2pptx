@@ -15,6 +15,7 @@ import stat
 import sys
 import tarfile
 import urllib.request
+import zipfile
 
 GITHUB_RELEASE_URL = (
     "https://github.com/Myriad-Dreamin/typst.ts/releases/download"
@@ -66,52 +67,85 @@ def download_typst_ts_cli(
             "typ2pptx", "data", "bin",
         )
 
-    asset_name = f"typst-ts-{target}.tar.gz"
+    is_windows = "windows" in target or "msvc" in target
+    archive_ext = "zip" if is_windows else "tar.gz"
+    asset_name = f"typst-ts-{target}.{archive_ext}"
     url = f"{GITHUB_RELEASE_URL}/{version}/{asset_name}"
 
     print(f"Downloading {url} ...")
     response = urllib.request.urlopen(url)
     data = response.read()
 
-    is_windows = "windows" in target or "msvc" in target
     binary_name = "typst-ts-cli.exe" if is_windows else "typst-ts-cli"
 
     # Try multiple possible paths (different versions have different structures)
-    possible_paths = [
-        f"typst-ts-{target}/bin/{binary_name}",   # v0.6.0 and earlier
-        f"typst-ts-{target}/{binary_name}",         # v0.7.0-rc2 and later
-    ]
+    # Windows zip: binary is at root level; Unix tar.gz: may have bin/ subdirectory
+    if is_windows:
+        possible_paths = [
+            f"{binary_name}",                              # v0.7.0-rc2: root level
+            f"typst-ts-{target}/{binary_name}",             # older structure
+            f"typst-ts-{target}/bin/{binary_name}",
+        ]
+    else:
+        possible_paths = [
+            f"typst-ts-{target}/bin/{binary_name}",   # v0.6.0 and earlier
+            f"typst-ts-{target}/{binary_name}",         # v0.7.0-rc2 and later
+        ]
 
     print(f"Extracting typst-ts-cli ...")
-    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
-        member = None
-        for path in possible_paths:
-            try:
-                member = tar.getmember(path)
-                print(f"  Found at: {path}")
-                break
-            except KeyError:
-                continue
 
-        if member is None:
-            available = [m.name for m in tar.getmembers() if "typst-ts-cli" in m.name]
-            raise RuntimeError(
-                f"Could not find typst-ts-cli binary in archive. "
-                f"Tried: {possible_paths}. Available files: {available}"
-            )
+    if is_windows:
+        # Handle ZIP archives for Windows
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            member_name = None
+            for path in possible_paths:
+                if path in zf.namelist():
+                    member_name = path
+                    print(f"  Found at: {path}")
+                    break
 
-        fileobj = tar.extractfile(member)
-        if fileobj is None:
-            raise RuntimeError(f"Could not extract {member.name} from archive")
+            if member_name is None:
+                available = [n for n in zf.namelist() if "typst-ts-cli" in n]
+                raise RuntimeError(
+                    f"Could not find typst-ts-cli binary in archive. "
+                    f"Tried: {possible_paths}. Available files: {available}"
+                )
 
-        os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, binary_name)
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, binary_name)
 
-        with open(output_path, "wb") as out:
-            out.write(fileobj.read())
+            with zf.open(member_name) as src, open(output_path, "wb") as dst:
+                dst.write(src.read())
+    else:
+        # Handle tar.gz archives for Unix-like systems
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
+            member = None
+            for path in possible_paths:
+                try:
+                    member = tar.getmember(path)
+                    print(f"  Found at: {path}")
+                    break
+                except KeyError:
+                    continue
 
-    # Make executable on Unix
-    if not is_windows:
+            if member is None:
+                available = [m.name for m in tar.getmembers() if "typst-ts-cli" in m.name]
+                raise RuntimeError(
+                    f"Could not find typst-ts-cli binary in archive. "
+                    f"Tried: {possible_paths}. Available files: {available}"
+                )
+
+            fileobj = tar.extractfile(member)
+            if fileobj is None:
+                raise RuntimeError(f"Could not extract {member.name} from archive")
+
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, binary_name)
+
+            with open(output_path, "wb") as out:
+                out.write(fileobj.read())
+
+        # Make executable on Unix
         current_mode = os.stat(output_path).st_mode
         os.chmod(output_path, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
