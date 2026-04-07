@@ -29,3 +29,7 @@ local/
 # Generated files
 *.svg
 *.pptx
+
+# Bundled binaries (downloaded at build time)
+typ2pptx/data/bin/typst-ts-cli
+typ2pptx/data/bin/typst-ts-cli.exe

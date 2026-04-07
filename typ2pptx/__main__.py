@@ -30,8 +30,13 @@ def main():
     )
     parser.add_argument(
         '--typst-ts-cli',
-        default='typst-ts-cli',
-        help='Path to typst-ts-cli binary (default: typst-ts-cli)',
+        default=None,
+        help='Path to typst-ts-cli binary (default: bundled or system)',
+    )
+    parser.add_argument(
+        '--root',
+        default=None,
+        help='Root directory for the Typst project (for resolving imports/paths)',
     )
     parser.add_argument(
         '-v', '--verbose',
@@ -82,6 +87,7 @@ def main():
             str(input_path),
             output_path=args.output,
             typst_ts_cli=args.typst_ts_cli,
+            root=args.root,
             config=config,
             verbose=args.verbose,
         )

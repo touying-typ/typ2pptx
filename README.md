@@ -26,7 +26,7 @@ Convert [Typst](https://typst.app/) presentations (using the [Touying](https://g
 - **typst** (Python package, v0.14+): For speaker notes extraction and SVG/PDF image rasterization
   - Installed automatically via pip
 - **typst-ts-cli** (v0.6.0+): For compiling `.typ` files to SVG with foreignObject text overlays
-  - Download from [typst.ts releases](https://github.com/nickelc/typst.ts/releases)
+  - Download from [typst.ts releases](https://github.com/Myriad-Dreamin/typst.ts/releases) automatically
 
 ## Installation
 
@@ -37,41 +37,6 @@ pip install typ2pptx
 ```
 
 After installation, the `typ2pptx` CLI command is available system-wide.
-
-### Development install
-
-```bash
-# Install in editable/development mode
-pip install -e .
-
-# Install with dev dependencies (pytest, etc.)
-pip install -e ".[dev]"
-```
-
-### Using uv
-
-```bash
-# Install from PyPI
-uv pip install typ2pptx
-
-# Or install in editable/development mode
-uv pip install -e .
-
-# Install with dev dependencies
-uv pip install -e ".[dev]"
-```
-
-### Updating dependencies
-
-All dependencies are declared in `pyproject.toml`. After modifying them:
-
-```bash
-# pip
-pip install -e .
-
-# uv
-uv pip install -e .
-```
 
 ## Usage
 
@@ -86,6 +51,9 @@ typ2pptx slides.typ -o slides.pptx -v
 
 # Convert from pre-compiled SVG (no typst-ts-cli needed)
 typ2pptx slides.artifact.svg -o slides.pptx
+
+# Specify project root directory (for resolving imports/paths)
+typ2pptx slides/main.typ -o slides.pptx --root .
 
 # Specify custom tool paths
 typ2pptx slides.typ -o slides.pptx \
@@ -118,6 +86,7 @@ convert_typst_to_pptx(
     "slides.typ",
     "slides.pptx",
     typst_ts_cli="/path/to/typst-ts-cli",
+    root="/path/to/project/root",
     verbose=True,
 )
 
@@ -247,6 +216,32 @@ typ2pptx    -->  PowerPoint (.pptx)
 | **Lists** | Bullet points | Text with bullet chars |
 | **Plugins** | Pinit highlights | Colored overlay shapes |
 
+## Development
+
+### Install in editable/development mode
+
+```bash
+# pip
+pip install -e .
+pip install -e ".[dev]"    # with dev dependencies (pytest, etc.)
+
+# uv
+uv pip install -e .
+uv pip install -e ".[dev]"
+```
+
+### Updating dependencies
+
+All dependencies are declared in `pyproject.toml`. After modifying them:
+
+```bash
+# pip
+pip install -e .
+
+# uv
+uv pip install -e .
+```
+
 ## Testing
 
 ```bash
@@ -293,7 +288,11 @@ typ2pptx/
     typst_svg_parser.py   # typst.ts SVG parsing and text extraction
   scripts/
     svg_to_shapes.py      # SVG path -> DrawingML pipeline (from ppt-master)
+  data/
+    bin/                  # Bundled typst-ts-cli binary (platform-specific)
   __main__.py             # CLI entry point
+scripts/
+  download_typst_ts_cli.py  # Download typst-ts-cli for bundling
 tests/
   conftest.py             # Shared test fixtures
   test_converter.py       # Converter tests

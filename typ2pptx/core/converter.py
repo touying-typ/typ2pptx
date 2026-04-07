@@ -3283,17 +3283,43 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
         return final_clusters
 
 
+def _find_typst_ts_cli() -> str:
+    """Locate the typst-ts-cli binary.
+
+    Search order:
+    1. Bundled binary shipped inside this package (typ2pptx/data/bin/)
+    2. System PATH
+    """
+    # 1. Bundled binary
+    bundled = Path(__file__).parent.parent / "data" / "bin" / "typst-ts-cli"
+    if bundled.exists() and os.access(str(bundled), os.X_OK):
+        return str(bundled)
+
+    # 2. System PATH
+    system_cli = shutil.which("typst-ts-cli")
+    if system_cli:
+        return system_cli
+
+    raise FileNotFoundError(
+        "typst-ts-cli not found. Install it from "
+        "https://github.com/Myriad-Dreamin/typst.ts/releases "
+        "or specify its path with --typst-ts-cli"
+    )
+
+
 def compile_typst_to_svg(
     typ_path: str,
     output_svg: Optional[str] = None,
-    typst_ts_cli: str = "typst-ts-cli",
+    typst_ts_cli: Optional[str] = None,
+    root: Optional[str] = None,
 ) -> str:
     """Compile a .typ file to SVG using typst-ts-cli.
 
     Args:
         typ_path: Path to the .typ file
         output_svg: Output SVG path (default: same name with .artifact.svg)
-        typst_ts_cli: Path to the typst-ts-cli binary
+        typst_ts_cli: Path to the typst-ts-cli binary (default: bundled or system)
+        root: Root directory for the Typst project (for resolving imports/paths)
 
     Returns:
         Path to the generated SVG file
@@ -3302,7 +3328,10 @@ def compile_typst_to_svg(
     if not typ_path.exists():
         raise FileNotFoundError(f"Typst file not found: {typ_path}")
 
-    workspace_dir = str(typ_path.parent)
+    if typst_ts_cli is None:
+        typst_ts_cli = _find_typst_ts_cli()
+
+    workspace_dir = root if root else str(typ_path.parent)
 
     cmd = [
         typst_ts_cli,
@@ -3346,6 +3375,7 @@ def compile_typst_to_svg(
 
 def query_speaker_notes(
     typ_path: str,
+    root: Optional[str] = None,
 ) -> Dict[int, str]:
     """Query speaker notes from a .typ file using the typst Python package.
 
@@ -3354,6 +3384,7 @@ def query_speaker_notes(
 
     Args:
         typ_path: Path to the .typ file
+        root: Root directory for the Typst project (for resolving imports/paths)
 
     Returns:
         Dict mapping page index (0-based) to notes text
@@ -3362,7 +3393,10 @@ def query_speaker_notes(
         import typst as typst_py
 
         typ_path_resolved = str(Path(typ_path).resolve())
-        result = typst_py.query(typ_path_resolved, "<pdfpc-file>", field="value")
+        query_kwargs: Dict[str, Any] = {"field": "value"}
+        if root is not None:
+            query_kwargs["root"] = root
+        result = typst_py.query(typ_path_resolved, "<pdfpc-file>", **query_kwargs)
 
         pdfpc = json.loads(result)
         if not pdfpc:
@@ -3385,7 +3419,8 @@ def query_speaker_notes(
 def convert_typst_to_pptx(
     input_path: str,
     output_path: Optional[str] = None,
-    typst_ts_cli: str = "typst-ts-cli",
+    typst_ts_cli: Optional[str] = None,
+    root: Optional[str] = None,
     config: Optional[ConversionConfig] = None,
     verbose: bool = False,
 ) -> str:
@@ -3394,7 +3429,8 @@ def convert_typst_to_pptx(
     Args:
         input_path: Path to .typ or .svg file
         output_path: Output .pptx path (default: same name)
-        typst_ts_cli: Path to typst-ts-cli binary
+        typst_ts_cli: Path to typst-ts-cli binary (default: bundled or system)
+        root: Root directory for the Typst project (for resolving imports/paths)
         config: Conversion configuration
         verbose: Enable verbose output
 
@@ -3414,10 +3450,12 @@ def convert_typst_to_pptx(
         # Compile to SVG first
         if verbose:
             print(f"Compiling {input_path} to SVG...")
-        svg_path = compile_typst_to_svg(str(input_path), typst_ts_cli=typst_ts_cli)
+        svg_path = compile_typst_to_svg(
+            str(input_path), typst_ts_cli=typst_ts_cli, root=root,
+        )
 
         # Query speaker notes
-        speaker_notes = query_speaker_notes(str(input_path))
+        speaker_notes = query_speaker_notes(str(input_path), root=root)
     elif input_path.suffix == '.svg':
         svg_path = str(input_path)
         speaker_notes = {}

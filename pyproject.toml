@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "typ2pptx"
-version = "0.1.0"
+version = "0.1.1"
 description = "Convert Typst presentations (Touying) to editable PowerPoint files"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -35,3 +35,6 @@ python_functions = ["test_*"]
 
 [tool.setuptools.packages.find]
 include = ["typ2pptx*"]
+
+[tool.setuptools.package-data]
+"typ2pptx" = ["data/bin/*"]
