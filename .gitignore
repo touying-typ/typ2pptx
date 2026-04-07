@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Test outputs (generated files)
+tests/output/
+tests/typ_sources/*.png
+tests/typ_sources/*.artifact.svg
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Virtual environments
+.venv/
+venv/
+
+# Local working directory
+local/
+
+# Generated files
+*.svg
+*.pptx
