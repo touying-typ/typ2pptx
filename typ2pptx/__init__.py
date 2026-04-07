@@ -1,5 +1,5 @@
 """
-typst2pptx - Convert Typst presentations to editable PowerPoint files.
+typ2pptx - Convert Typst presentations to editable PowerPoint files.
 
 This tool converts Typst presentations (generated via Touying framework)
 to PowerPoint (.pptx) files with editable text, shapes, and images.

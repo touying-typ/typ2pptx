@@ -1,10 +1,10 @@
 """
-typst2pptx CLI - Convert Typst presentations to PowerPoint.
+typ2pptx CLI - Convert Typst presentations to PowerPoint.
 
 Usage:
-    typst2pptx slides.typ -o slides.pptx
-    typst2pptx slides.svg -o slides.pptx
-    typst2pptx slides.typ --typst-ts-cli /path/to/typst-ts-cli
+    typ2pptx slides.typ -o slides.pptx
+    typ2pptx slides.svg -o slides.pptx
+    typ2pptx slides.typ --typst-ts-cli /path/to/typst-ts-cli
 """
 
 import argparse
@@ -16,7 +16,7 @@ from .core.converter import convert_typst_to_pptx, ConversionConfig
 
 def main():
     parser = argparse.ArgumentParser(
-        prog='typst2pptx',
+        prog='typ2pptx',
         description='Convert Typst presentations to PowerPoint (.pptx) files',
     )
 

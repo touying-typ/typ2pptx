@@ -1,4 +1,4 @@
-# typst2pptx
+# typ2pptx
 
 Convert [Typst](https://typst.app/) presentations (using the [Touying](https://github.com/touying-typ/touying) framework) to editable PowerPoint (.pptx) files.
 
@@ -33,10 +33,10 @@ Convert [Typst](https://typst.app/) presentations (using the [Touying](https://g
 ### From PyPI (recommended)
 
 ```bash
-pip install typst2pptx
+pip install typ2pptx
 ```
 
-After installation, the `typst2pptx` CLI command is available system-wide.
+After installation, the `typ2pptx` CLI command is available system-wide.
 
 ### Development install
 
@@ -52,7 +52,7 @@ pip install -e ".[dev]"
 
 ```bash
 # Install from PyPI
-uv pip install typst2pptx
+uv pip install typ2pptx
 
 # Or install in editable/development mode
 uv pip install -e .
@@ -79,20 +79,20 @@ uv pip install -e .
 
 ```bash
 # Convert a Typst presentation to PPTX
-typst2pptx slides.typ -o slides.pptx
+typ2pptx slides.typ -o slides.pptx
 
 # Convert with verbose output
-typst2pptx slides.typ -o slides.pptx -v
+typ2pptx slides.typ -o slides.pptx -v
 
 # Convert from pre-compiled SVG (no typst-ts-cli needed)
-typst2pptx slides.artifact.svg -o slides.pptx
+typ2pptx slides.artifact.svg -o slides.pptx
 
 # Specify custom tool paths
-typst2pptx slides.typ -o slides.pptx \
+typ2pptx slides.typ -o slides.pptx \
     --typst-ts-cli /path/to/typst-ts-cli
 
 # Math rendering mode options
-typst2pptx slides.typ -o slides.pptx \
+typ2pptx slides.typ -o slides.pptx \
     --inline-math-mode auto \      # "text", "glyph", or "auto" (default: auto)
     --display-math-mode glyph      # "text", "glyph", or "auto" (default: glyph)
 ```
@@ -108,7 +108,7 @@ typst2pptx slides.typ -o slides.pptx \
 ### Python API
 
 ```python
-from typst2pptx.core.converter import convert_typst_to_pptx
+from typ2pptx.core.converter import convert_typst_to_pptx
 
 # Simple conversion
 convert_typst_to_pptx("slides.typ", "slides.pptx")
@@ -128,7 +128,7 @@ convert_typst_to_pptx("slides.artifact.svg", "slides.pptx")
 ### Advanced: Step-by-step conversion
 
 ```python
-from typst2pptx.core.converter import (
+from typ2pptx.core.converter import (
     compile_typst_to_svg,
     query_speaker_notes,
     TypstSVGConverter,
@@ -165,7 +165,7 @@ typst-ts-cli  -->  SVG (with foreignObject text overlays)
 typst.query() -->  Speaker notes (pdfpc JSON format, via Python package)
     |
     v
-typst2pptx    -->  PowerPoint (.pptx)
+typ2pptx    -->  PowerPoint (.pptx)
 ```
 
 ### Architecture
@@ -287,7 +287,7 @@ pytest tests/test_code_blocks.py -v
 ## Project Structure
 
 ```
-typst2pptx/
+typ2pptx/
   core/
     converter.py          # Main SVG -> PPTX conversion logic
     typst_svg_parser.py   # typst.ts SVG parsing and text extraction
@@ -329,7 +329,7 @@ tests/
 
 ### ppt-master Attribution
 
-The file `typst2pptx/scripts/svg_to_shapes.py` is adapted from the [ppt-master](https://github.com/niccolocorsani/ppt-master) project, which provides the core SVG path to DrawingML conversion pipeline:
+The file `typ2pptx/scripts/svg_to_shapes.py` is adapted from the [ppt-master](https://github.com/niccolocorsani/ppt-master) project, which provides the core SVG path to DrawingML conversion pipeline:
 
 - `parse_svg_path()` -- tokenizes SVG path `d` attributes into structured commands
 - `svg_path_to_absolute()` -- converts relative path commands to absolute coordinates

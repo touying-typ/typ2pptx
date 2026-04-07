@@ -126,7 +126,7 @@ class TestChinesePPTXOutput:
                         if run.font.size:
                             if "中文" in run.text or "测试" in run.text:
                                 title_sizes.append(run.font.size)
-                            elif "typst2pptx" in run.text or "中文支持" in run.text:
+                            elif "typ2pptx" in run.text or "中文支持" in run.text:
                                 body_sizes.append(run.font.size)
         if title_sizes and body_sizes:
             assert max(title_sizes) > max(body_sizes), (

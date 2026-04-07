@@ -3,7 +3,7 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "typst2pptx"
+name = "typ2pptx"
 version = "0.1.0"
 description = "Convert Typst presentations (Touying) to editable PowerPoint files"
 readme = "README.md"
@@ -25,7 +25,7 @@ dev = [
 ]
 
 [project.scripts]
-typst2pptx = "typst2pptx.__main__:main"
+typ2pptx = "typ2pptx.__main__:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -34,4 +34,4 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 [tool.setuptools.packages.find]
-include = ["typst2pptx*"]
+include = ["typ2pptx*"]

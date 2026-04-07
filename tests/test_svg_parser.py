@@ -1,6 +1,6 @@
 """Tests for typst_svg_parser module."""
 import pytest
-from typst2pptx.core.typst_svg_parser import (
+from typ2pptx.core.typst_svg_parser import (
     parse_transform,
     parse_viewbox,
     parse_typst_svg,

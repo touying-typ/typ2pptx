@@ -1,7 +1,7 @@
 """Tests for the SVG path → DrawingML pipeline."""
 import pytest
 
-from typst2pptx.scripts.svg_to_shapes import (
+from typ2pptx.scripts.svg_to_shapes import (
     parse_svg_path,
     svg_path_to_absolute,
     normalize_path_commands,

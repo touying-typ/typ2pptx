@@ -5,7 +5,7 @@ from pathlib import Path
 from pptx import Presentation
 from pptx.util import Emu
 
-from typst2pptx.core.converter import (
+from typ2pptx.core.converter import (
     ConversionConfig,
     TypstSVGConverter,
     _parse_color,
@@ -16,7 +16,7 @@ from typst2pptx.core.converter import (
     query_speaker_notes,
     convert_typst_to_pptx,
 )
-from typst2pptx.core.typst_svg_parser import TextSegment
+from typ2pptx.core.typst_svg_parser import TextSegment
 
 
 class TestParseColor:

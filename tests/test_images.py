@@ -178,7 +178,7 @@ class TestImageRasterization:
 
     def test_svg_rasterization_basic(self):
         """_rasterize_image_to_png should rasterize SVG to valid PNG."""
-        from typst2pptx.core.converter import TypstSVGConverter, ConversionConfig
+        from typ2pptx.core.converter import TypstSVGConverter, ConversionConfig
         config = ConversionConfig()
         converter = TypstSVGConverter(config)
 
@@ -199,7 +199,7 @@ class TestImageRasterization:
 
     def test_svg_rasterization_has_transparency(self):
         """Rasterized SVG should have transparent background (RGBA)."""
-        from typst2pptx.core.converter import TypstSVGConverter, ConversionConfig
+        from typ2pptx.core.converter import TypstSVGConverter, ConversionConfig
         config = ConversionConfig()
         converter = TypstSVGConverter(config)
 
@@ -218,7 +218,7 @@ class TestImageRasterization:
 
     def test_svg_rasterization_has_content(self):
         """Rasterized SVG should have visible (non-blank) content."""
-        from typst2pptx.core.converter import TypstSVGConverter, ConversionConfig
+        from typ2pptx.core.converter import TypstSVGConverter, ConversionConfig
         config = ConversionConfig()
         converter = TypstSVGConverter(config)
 
@@ -238,7 +238,7 @@ class TestImageRasterization:
 
     def test_pdf_rasterization_basic(self):
         """_rasterize_image_to_png should rasterize PDF to valid PNG."""
-        from typst2pptx.core.converter import TypstSVGConverter, ConversionConfig
+        from typ2pptx.core.converter import TypstSVGConverter, ConversionConfig
         config = ConversionConfig()
         converter = TypstSVGConverter(config)
 
@@ -255,7 +255,7 @@ class TestImageRasterization:
 
     def test_pdf_rasterization_with_dimensions(self):
         """_rasterize_image_to_png should respect width_px for PDF."""
-        from typst2pptx.core.converter import TypstSVGConverter, ConversionConfig
+        from typ2pptx.core.converter import TypstSVGConverter, ConversionConfig
         config = ConversionConfig()
         converter = TypstSVGConverter(config)
 
@@ -273,7 +273,7 @@ class TestImageRasterization:
 
     def test_pdf_rasterization_has_content(self):
         """Rasterized PDF should have visible content (not blank)."""
-        from typst2pptx.core.converter import TypstSVGConverter, ConversionConfig
+        from typ2pptx.core.converter import TypstSVGConverter, ConversionConfig
         config = ConversionConfig()
         converter = TypstSVGConverter(config)
 
@@ -292,7 +292,7 @@ class TestImageRasterization:
 
     def test_svgxml_format_alias(self):
         """'svg+xml' format should work the same as 'svg'."""
-        from typst2pptx.core.converter import TypstSVGConverter, ConversionConfig
+        from typ2pptx.core.converter import TypstSVGConverter, ConversionConfig
         config = ConversionConfig()
         converter = TypstSVGConverter(config)
 

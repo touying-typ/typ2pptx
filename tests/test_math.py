@@ -3,7 +3,7 @@ import pytest
 from pptx import Presentation
 from pptx.util import Emu
 
-from typst2pptx.core.typst_svg_parser import parse_typst_svg
+from typ2pptx.core.typst_svg_parser import parse_typst_svg
 
 
 class TestMathFontDetection:

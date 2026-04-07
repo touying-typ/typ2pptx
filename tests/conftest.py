@@ -1,4 +1,4 @@
-"""Shared fixtures for typst2pptx tests."""
+"""Shared fixtures for typ2pptx tests."""
 import os
 import shutil
 import pytest
@@ -36,7 +36,7 @@ def typst_ts_cli():
 @pytest.fixture(scope="session")
 def basic_text_svg(typ_sources_dir, typst_ts_cli):
     """Compile basic_text.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "basic_text.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -45,7 +45,7 @@ def basic_text_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def shapes_test_svg(typ_sources_dir, typst_ts_cli):
     """Compile shapes_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "shapes_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -54,7 +54,7 @@ def shapes_test_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def speaker_notes_svg(typ_sources_dir, typst_ts_cli):
     """Compile speaker_notes_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "speaker_notes_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -63,21 +63,21 @@ def speaker_notes_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def basic_text_parsed(basic_text_svg):
     """Parse basic_text SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(basic_text_svg)
 
 
 @pytest.fixture(scope="session")
 def shapes_test_parsed(shapes_test_svg):
     """Parse shapes_test SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(shapes_test_svg)
 
 
 @pytest.fixture(scope="session")
 def basic_text_pptx(basic_text_svg, output_dir, typ_sources_dir):
     """Convert basic_text to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "basic_text_test.pptx")
@@ -92,7 +92,7 @@ def basic_text_pptx(basic_text_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def shapes_test_pptx(shapes_test_svg, output_dir, typ_sources_dir):
     """Convert shapes_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "shapes_test_test.pptx")
@@ -107,7 +107,7 @@ def shapes_test_pptx(shapes_test_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def speaker_notes_pptx(speaker_notes_svg, output_dir, typ_sources_dir):
     """Convert speaker_notes_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "speaker_notes_test_test.pptx")
@@ -122,7 +122,7 @@ def speaker_notes_pptx(speaker_notes_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def math_test_svg(typ_sources_dir, typst_ts_cli):
     """Compile math_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "math_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -131,14 +131,14 @@ def math_test_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def math_test_parsed(math_test_svg):
     """Parse math_test SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(math_test_svg)
 
 
 @pytest.fixture(scope="session")
 def math_test_pptx(math_test_svg, output_dir, typ_sources_dir):
     """Convert math_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "math_test_test.pptx")
@@ -153,7 +153,7 @@ def math_test_pptx(math_test_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def chinese_test_svg(typ_sources_dir, typst_ts_cli):
     """Compile chinese_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "chinese_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -162,14 +162,14 @@ def chinese_test_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def chinese_test_parsed(chinese_test_svg):
     """Parse chinese_test SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(chinese_test_svg)
 
 
 @pytest.fixture(scope="session")
 def chinese_test_pptx(chinese_test_svg, output_dir, typ_sources_dir):
     """Convert chinese_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "chinese_test_test.pptx")
@@ -184,7 +184,7 @@ def chinese_test_pptx(chinese_test_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def inline_math_test_svg(typ_sources_dir, typst_ts_cli):
     """Compile inline_math_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "inline_math_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -193,14 +193,14 @@ def inline_math_test_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def inline_math_test_parsed(inline_math_test_svg):
     """Parse inline_math_test SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(inline_math_test_svg)
 
 
 @pytest.fixture(scope="session")
 def inline_math_test_pptx(inline_math_test_svg, output_dir, typ_sources_dir):
     """Convert inline_math_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "inline_math_test_test.pptx")
@@ -215,7 +215,7 @@ def inline_math_test_pptx(inline_math_test_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def table_test_svg(typ_sources_dir, typst_ts_cli):
     """Compile table_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "table_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -224,14 +224,14 @@ def table_test_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def table_test_parsed(table_test_svg):
     """Parse table_test SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(table_test_svg)
 
 
 @pytest.fixture(scope="session")
 def table_test_pptx(table_test_svg, output_dir, typ_sources_dir):
     """Convert table_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "table_test_test.pptx")
@@ -246,7 +246,7 @@ def table_test_pptx(table_test_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def pinit_test_svg(typ_sources_dir, typst_ts_cli):
     """Compile pinit_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "pinit_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -255,14 +255,14 @@ def pinit_test_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def pinit_test_parsed(pinit_test_svg):
     """Parse pinit_test SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(pinit_test_svg)
 
 
 @pytest.fixture(scope="session")
 def pinit_test_pptx(pinit_test_svg, output_dir, typ_sources_dir):
     """Convert pinit_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "pinit_test_test.pptx")
@@ -277,7 +277,7 @@ def pinit_test_pptx(pinit_test_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def link_test_svg(typ_sources_dir, typst_ts_cli):
     """Compile link_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "link_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -286,14 +286,14 @@ def link_test_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def link_test_parsed(link_test_svg):
     """Parse link_test SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(link_test_svg)
 
 
 @pytest.fixture(scope="session")
 def link_test_pptx(link_test_svg, output_dir, typ_sources_dir):
     """Convert link_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "link_test_test.pptx")
@@ -308,7 +308,7 @@ def link_test_pptx(link_test_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def alignment_test_svg(typ_sources_dir, typst_ts_cli):
     """Compile alignment_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "alignment_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -317,14 +317,14 @@ def alignment_test_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def alignment_test_parsed(alignment_test_svg):
     """Parse alignment_test SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(alignment_test_svg)
 
 
 @pytest.fixture(scope="session")
 def alignment_test_pptx(alignment_test_svg, output_dir, typ_sources_dir):
     """Convert alignment_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "alignment_test_test.pptx")
@@ -339,7 +339,7 @@ def alignment_test_pptx(alignment_test_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def image_test_svg(typ_sources_dir, typst_ts_cli):
     """Compile image_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "image_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -348,14 +348,14 @@ def image_test_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def image_test_parsed(image_test_svg):
     """Parse image_test SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(image_test_svg)
 
 
 @pytest.fixture(scope="session")
 def image_test_pptx(image_test_svg, output_dir, typ_sources_dir):
     """Convert image_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "image_test_test.pptx")
@@ -370,7 +370,7 @@ def image_test_pptx(image_test_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def code_block_test_svg(typ_sources_dir, typst_ts_cli):
     """Compile code_block_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "code_block_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -379,14 +379,14 @@ def code_block_test_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def code_block_test_parsed(code_block_test_svg):
     """Parse code_block_test SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(code_block_test_svg)
 
 
 @pytest.fixture(scope="session")
 def code_block_test_pptx(code_block_test_svg, output_dir, typ_sources_dir):
     """Convert code_block_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "code_block_test_test.pptx")
@@ -400,7 +400,7 @@ def code_block_test_pptx(code_block_test_svg, output_dir, typ_sources_dir):
 @pytest.fixture(scope="session")
 def columns_test_svg(typ_sources_dir, typst_ts_cli):
     """Compile columns_test.typ to SVG and return the SVG path."""
-    from typst2pptx.core.converter import compile_typst_to_svg
+    from typ2pptx.core.converter import compile_typst_to_svg
     typ_path = typ_sources_dir / "columns_test.typ"
     svg_path = compile_typst_to_svg(str(typ_path), typst_ts_cli=typst_ts_cli)
     return svg_path
@@ -408,13 +408,13 @@ def columns_test_svg(typ_sources_dir, typst_ts_cli):
 @pytest.fixture(scope="session")
 def columns_test_parsed(columns_test_svg):
     """Parse columns_test SVG and return TypstSVGData."""
-    from typst2pptx.core.typst_svg_parser import parse_typst_svg
+    from typ2pptx.core.typst_svg_parser import parse_typst_svg
     return parse_typst_svg(columns_test_svg)
 
 @pytest.fixture(scope="session")
 def columns_test_pptx(columns_test_svg, output_dir, typ_sources_dir):
     """Convert columns_test to PPTX and return the path."""
-    from typst2pptx.core.converter import (
+    from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
     output_path = str(output_dir / "columns_test_test.pptx")
