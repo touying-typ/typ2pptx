@@ -44,6 +44,7 @@ pip install typ2pptx
 After installation, the `typ2pptx` CLI command is available system-wide.
 
 ## Usage
+An example generated PowerPoint is included in the repository: [examples/example.pptx](examples/example.pptx)
 
 ### Command Line
 
