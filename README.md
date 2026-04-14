@@ -1,5 +1,10 @@
 # typ2pptx
 
+> [!WARNING]  
+> This project is a vibe coding project and is currently under active development. Many conversion errors and edge cases remain.
+> 
+> If you encounter conversion issues, please open an issue with a minimal example with source files and images showing the problem — I'll try to fix them. The more issue reports and examples you provide, the faster I can improve the converter.
+
 Convert [Typst](https://typst.app/) presentations (using the [Touying](https://github.com/touying-typ/touying) framework) to editable PowerPoint (.pptx) files.
 
 ## Features
