@@ -71,9 +71,16 @@ class TestAlignmentPPTXOutput:
                         found_right = True
         assert found_right, "No right-aligned paragraph found on slide 4"
 
-    def test_justified_text(self, alignment_test_pptx):
-        """Slide 5 should have justified text (long paragraph)."""
-        prs = Presentation(alignment_test_pptx)
+    def test_justified_text_requires_paragraph_detection(
+        self, alignment_test_pptx_with_paragraphs,
+    ):
+        """Slide 5 should have justified text when paragraph detection is on.
+
+        Justified alignment is only set when consecutive wrapped lines are
+        merged into a paragraph group (``_add_paragraph_textbox``), so this
+        test uses the opt-in fixture with ``detect_paragraphs=True``.
+        """
+        prs = Presentation(alignment_test_pptx_with_paragraphs)
         if len(prs.slides) < 5:
             pytest.skip("Not enough slides for justify test")
         slide5 = prs.slides[4]
@@ -84,4 +91,23 @@ class TestAlignmentPPTXOutput:
                 for p in shape.text_frame.paragraphs:
                     if p.alignment == PP_ALIGN.JUSTIFY:
                         found_justify = True
-        assert found_justify, "No justified paragraph found on slide 5"
+        assert found_justify, (
+            "No justified paragraph found on slide 5 with detect_paragraphs=True"
+        )
+
+    def test_no_justify_when_paragraph_detection_off(self, alignment_test_pptx):
+        """With the default config (paragraph detection OFF), wrapped lines
+        stay separate so no paragraph can be classified as justified."""
+        prs = Presentation(alignment_test_pptx)
+        if len(prs.slides) < 5:
+            pytest.skip("Not enough slides for justify test")
+        slide5 = prs.slides[4]
+
+        for shape in slide5.shapes:
+            if not shape.has_text_frame:
+                continue
+            for p in shape.text_frame.paragraphs:
+                assert p.alignment != PP_ALIGN.JUSTIFY, (
+                    "Unexpected JUSTIFY alignment on slide 5 when "
+                    "detect_paragraphs defaults to False"
+                )

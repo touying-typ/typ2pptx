@@ -20,7 +20,8 @@ Convert [Typst](https://typst.app/) presentations (using the [Touying](https://g
 - **Speaker notes**: Extracts Touying speaker notes via `typst.query()` (Python package) and attaches them to slides
 - **Color preservation**: Supports hex, rgb(), rgba(), named CSS colors, and per-character coloring
 - **Multi-run textboxes**: Groups same-line text segments into single textboxes with multiple styled runs
-- **Paragraph alignment**: Auto-detects left, center, right, and justify alignment from Typst layout
+- **Paragraph alignment**: Auto-detects left, center, and right alignment from Typst layout; justify is detected when the opt-in paragraph auto-detection is enabled
+- **Paragraph auto-detection (opt-in)**: Off by default. When enabled (`--detect-paragraphs` / `ConversionConfig(detect_paragraphs=True)`), consecutive wrapped lines that share font and left edge are merged into a single word-wrapped textbox. Disabled by default because the heuristic can mis-merge tightly-packed content such as tables.
 - **Code blocks**: Syntax-highlighted code blocks rendered with Consolas font, preserving per-token colors
 - **Images**: Supports embedded (data URI) and external image references (PNG, SVG, PDF); SVG/PDF images rasterized to PNG with transparent background via the `typst` Python package
 - **Tables**: Table content (cells, headers, colored fills) converted to text and shapes
@@ -69,6 +70,12 @@ typ2pptx slides.typ -o slides.pptx \
 typ2pptx slides.typ -o slides.pptx \
     --inline-math-mode auto \      # "text", "glyph", or "auto" (default: auto)
     --display-math-mode glyph      # "text", "glyph", or "auto" (default: glyph)
+
+# Enable paragraph auto-detection (off by default)
+# When enabled, consecutive wrapped lines are merged into a single
+# word-wrapped textbox. Useful for prose-heavy decks (e.g. #lorem(200)).
+# Disabled by default because it can mis-merge table rows and list items.
+typ2pptx slides.typ -o slides.pptx --detect-paragraphs
 ```
 
 ### Math Rendering Modes
@@ -121,6 +128,7 @@ config = ConversionConfig(
     verbose=True,
     inline_math_mode="auto",     # "text", "glyph", or "auto"
     display_math_mode="glyph",   # "text", "glyph", or "auto"
+    detect_paragraphs=False,     # opt-in: merge wrapped lines into one textbox
 )
 converter = TypstSVGConverter(config)
 converter.convert(svg_path, "slides.pptx", speaker_notes=notes)
@@ -169,7 +177,8 @@ typ2pptx    -->  PowerPoint (.pptx)
    - Inline math sub/superscripts merged into adjacent text lines with PPTX-native baseline offsets
    - Math segments clustered spatially into formula regions
    - Sets font properties (bold, italic, name, size, color) per run
-   - Auto-detects paragraph alignment (left, center, right, justify) from segment positions
+   - Auto-detects paragraph alignment (left, center, right) from segment positions
+   - Optional paragraph auto-detection (off by default, opt-in via `detect_paragraphs=True`) merges consecutive wrapped lines into a single word-wrapped textbox and enables justify alignment
 
 5. **Math Renderer**: Dual-mode math formula handling:
    - **Text mode**: Renders as Cambria Math text runs with sub/superscript baseline offsets
@@ -217,7 +226,9 @@ typ2pptx    -->  PowerPoint (.pptx)
 | **Tables** | Table cells and headers | Text + shapes |
 | **Tables** | Colored table backgrounds | Filled shapes |
 | **Layout** | Slide dimensions (16:9, 4:3) | Full |
-| **Layout** | Text alignment (left, center, right, justify) | Auto-detected |
+| **Layout** | Text alignment (left, center, right) | Auto-detected |
+| **Layout** | Justified paragraphs | Detected when `detect_paragraphs=True` (opt-in) |
+| **Layout** | Multi-line paragraph merging (`#lorem`, two-column prose) | Opt-in via `--detect-paragraphs` / `detect_paragraphs=True` |
 | **Notes** | Touying speaker notes | Full |
 | **Lists** | Bullet points | Text with bullet chars |
 | **Plugins** | Pinit highlights | Colored overlay shapes |
@@ -269,7 +280,7 @@ pytest tests/test_code_blocks.py -v
 
 ### Test Coverage
 
-- **254 tests** covering:
+- **265 tests** covering:
   - Converter & configuration (56 tests)
   - SVG parser (30 tests)
   - Inline math & stacked fractions (22 tests)
@@ -282,8 +293,9 @@ pytest tests/test_code_blocks.py -v
   - Text positioning & multi-run merging (12 tests)
   - Chinese text (11 tests)
   - Hyperlinks (11 tests)
-  - Columns layout (7 tests)
-  - Text alignment (7 tests)
+  - Columns layout (9 tests)
+  - Text alignment (8 tests)
+  - Paragraph auto-detection toggle (8 tests)
 
 ## Project Structure
 
@@ -314,6 +326,7 @@ tests/
   test_text_positioning.py # Text positioning tests
   test_svg_parser.py      # SVG parser tests
   test_path_pipeline.py   # Path conversion tests
+  test_paragraph_detection.py # Paragraph auto-detection toggle tests
   typ_sources/            # Test Typst source files
     basic_text.typ
     shapes_test.typ

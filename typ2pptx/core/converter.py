@@ -57,6 +57,13 @@ class ConversionConfig:
     # Math rendering mode for display/block math: "text", "glyph", or "auto"
     # "auto" uses the same heuristic as inline math
     display_math_mode: str = "glyph"
+    # Whether to auto-detect and merge consecutive wrapped lines into a single
+    # paragraph textbox with word-wrap enabled. This heuristic is prone to
+    # misclassifying tightly-packed content such as tables, which is a frequent
+    # source of rendering bugs. It is therefore disabled by default: each visual
+    # line becomes its own textbox. Set to True to enable the heuristic (useful
+    # for prose-heavy slides like #lorem(200) or multi-column layouts).
+    detect_paragraphs: bool = False
 
 
 def _compute_text_position(text_seg: TextSegment, page_width: float, page_height: float) -> Tuple[float, float, float, float]:
@@ -564,7 +571,11 @@ def _is_simple_inline_math(cluster: list) -> bool:
     return True
 
 
-def _merge_paragraph_lines(line_groups: list, page_width: float = 0) -> list:
+def _merge_paragraph_lines(
+    line_groups: list,
+    page_width: float = 0,
+    detect_paragraphs: bool = False,
+) -> list:
     """Merge consecutive single-line groups that form a paragraph.
 
     Detects consecutive lines with:
@@ -582,6 +593,15 @@ def _merge_paragraph_lines(line_groups: list, page_width: float = 0) -> list:
     then merging paragraphs within each column independently using the
     column's actual width rather than the full page width.
 
+    Args:
+        line_groups: Groups of segments already clustered by baseline.
+        page_width: Page content width (used for column-width heuristics).
+        detect_paragraphs: When False (the default) no merging is performed
+            and each input line is returned as its own 'line' group. This is
+            the safe default because the heuristic can misclassify
+            tightly-packed content such as tables. Set to True to opt into
+            the multi-line paragraph merging heuristic.
+
     Returns a list of dicts:
     - {'type': 'line', 'segments': [...]}  for regular single-line groups
     - {'type': 'paragraph', 'lines': [[...], [...], ...], 'segments': [...]}
@@ -589,6 +609,12 @@ def _merge_paragraph_lines(line_groups: list, page_width: float = 0) -> list:
     """
     if not line_groups:
         return []
+
+    # Fast path: paragraph detection disabled -> each visual line stays as its
+    # own textbox. This avoids the heuristic entirely and is the recommended
+    # default for mixed content (tables, bullets, code, etc.).
+    if not detect_paragraphs:
+        return [{'type': 'line', 'segments': list(line)} for line in line_groups]
 
     def _line_props(line_segs):
         """Get the dominant properties of a line group."""
@@ -2207,8 +2233,15 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
         # Merge inline math sub/superscripts into their adjacent text lines
         line_groups = _merge_inline_math_subscripts(line_groups)
 
-        # Detect and merge paragraph lines
-        merged_groups = _merge_paragraph_lines(line_groups, page_width=page_width)
+        # Detect and merge paragraph lines (opt-in via ConversionConfig).
+        # When detect_paragraphs is False (the default), each visual line stays
+        # as its own textbox, which avoids mis-merging table cells, list items,
+        # and other tightly-packed content.
+        merged_groups = _merge_paragraph_lines(
+            line_groups,
+            page_width=page_width,
+            detect_paragraphs=self.config.detect_paragraphs,
+        )
 
         for group in merged_groups:
             if group['type'] == 'paragraph':

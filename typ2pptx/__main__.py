@@ -61,6 +61,18 @@ def main():
         default='glyph',
         help='Display/block math rendering: "text" (Cambria Math), "glyph" (glyph curves), or "auto" (heuristic). Default: glyph',
     )
+    parser.add_argument(
+        '--detect-paragraphs',
+        action='store_true',
+        default=False,
+        help=(
+            'Enable the paragraph auto-detection heuristic that merges '
+            'consecutive wrapped lines (same font, aligned left edge, full-width) '
+            'into a single word-wrapped textbox. Disabled by default because the '
+            'heuristic can mis-merge tightly-packed content such as tables and '
+            'list items. Enable it for prose-heavy decks.'
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -80,6 +92,7 @@ def main():
         raster_dpi=args.raster_dpi,
         inline_math_mode=args.inline_math_mode,
         display_math_mode=args.display_math_mode,
+        detect_paragraphs=args.detect_paragraphs,
     )
 
     try:

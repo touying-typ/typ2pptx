@@ -67,37 +67,62 @@ class TestColumnsPPTXOutput:
                 right_shapes.append((shape, all_text))
         return left_shapes, right_shapes
 
-    def test_left_column_merged_into_paragraph(self, columns_test_pptx):
-        """Left column's multi-line lorem text should be merged into a paragraph textbox.
+    def test_left_column_not_merged_by_default(self, columns_test_pptx):
+        """With the default config (paragraph detection OFF), each wrapped line
+        in the left column should remain its own textbox.
 
-        In a two-column layout, each column's wrapped text lines should be
-        recognized as a paragraph and merged into a single textbox with
-        multiple paragraphs/runs, rather than remaining as separate textboxes
-        per line.
-
-        The left column has ~10 lines of text; if merged correctly, it should
-        be in 1-2 shapes instead of 10.
+        Paragraph auto-detection is disabled by default because the heuristic
+        often mis-merges tightly-packed content (tables, bullets, etc.). With
+        detection off, the ~10 wrapped lines in the left column should produce
+        noticeably more than 2 shapes.
         """
         left_shapes, _ = self._get_column_shapes(columns_test_pptx)
 
         assert len(left_shapes) > 0, "No left column body text found"
-        assert len(left_shapes) <= 2, (
-            f"Left column text should be merged into 1-2 paragraph textboxes, "
-            f"but found {len(left_shapes)} separate shapes"
+        assert len(left_shapes) >= 3, (
+            f"With detect_paragraphs=False (default), left column's wrapped "
+            f"lines should stay as separate textboxes, but only found "
+            f"{len(left_shapes)} shapes (looks like they were merged)."
         )
 
-    def test_right_column_merged_into_paragraph(self, columns_test_pptx):
-        """Right column's multi-line lorem text should be merged into a paragraph textbox.
-
-        The right column has ~10 lines of text; if merged correctly, it should
-        be in 1-2 shapes instead of 10.
-        """
+    def test_right_column_not_merged_by_default(self, columns_test_pptx):
+        """Same as the left-column case: default config keeps each wrapped
+        line as its own textbox."""
         _, right_shapes = self._get_column_shapes(columns_test_pptx)
 
         assert len(right_shapes) > 0, "No right column body text found"
+        assert len(right_shapes) >= 3, (
+            f"With detect_paragraphs=False (default), right column's wrapped "
+            f"lines should stay as separate textboxes, but only found "
+            f"{len(right_shapes)} shapes (looks like they were merged)."
+        )
+
+    def test_left_column_merged_when_detection_enabled(
+        self, columns_test_pptx_with_paragraphs,
+    ):
+        """With detect_paragraphs=True, the left column's multi-line lorem text
+        should be merged into 1-2 paragraph textboxes."""
+        left_shapes, _ = self._get_column_shapes(columns_test_pptx_with_paragraphs)
+
+        assert len(left_shapes) > 0, "No left column body text found"
+        assert len(left_shapes) <= 2, (
+            f"With detect_paragraphs=True, left column text should be merged "
+            f"into 1-2 paragraph textboxes, but found {len(left_shapes)} "
+            f"separate shapes"
+        )
+
+    def test_right_column_merged_when_detection_enabled(
+        self, columns_test_pptx_with_paragraphs,
+    ):
+        """With detect_paragraphs=True, the right column's multi-line lorem
+        text should be merged into 1-2 paragraph textboxes."""
+        _, right_shapes = self._get_column_shapes(columns_test_pptx_with_paragraphs)
+
+        assert len(right_shapes) > 0, "No right column body text found"
         assert len(right_shapes) <= 2, (
-            f"Right column text should be merged into 1-2 paragraph textboxes, "
-            f"but found {len(right_shapes)} separate shapes"
+            f"With detect_paragraphs=True, right column text should be merged "
+            f"into 1-2 paragraph textboxes, but found {len(right_shapes)} "
+            f"separate shapes"
         )
 
     def test_columns_text_not_overlapping(self, columns_test_pptx):

@@ -323,7 +323,7 @@ def alignment_test_parsed(alignment_test_svg):
 
 @pytest.fixture(scope="session")
 def alignment_test_pptx(alignment_test_svg, output_dir, typ_sources_dir):
-    """Convert alignment_test to PPTX and return the path."""
+    """Convert alignment_test to PPTX with default config (paragraph detection off)."""
     from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
@@ -331,6 +331,27 @@ def alignment_test_pptx(alignment_test_svg, output_dir, typ_sources_dir):
     notes = query_speaker_notes(
         str(typ_sources_dir / "alignment_test.typ")    )
     config = ConversionConfig()
+    converter = TypstSVGConverter(config)
+    converter.convert(alignment_test_svg, output_path, speaker_notes=notes)
+    return output_path
+
+
+@pytest.fixture(scope="session")
+def alignment_test_pptx_with_paragraphs(
+    alignment_test_svg, output_dir, typ_sources_dir,
+):
+    """Convert alignment_test to PPTX with paragraph auto-detection enabled.
+
+    Needed for the justified-text assertion: `justify` alignment is only
+    emitted on merged paragraph groups, which require the opt-in heuristic.
+    """
+    from typ2pptx.core.converter import (
+        TypstSVGConverter, ConversionConfig, query_speaker_notes,
+    )
+    output_path = str(output_dir / "alignment_test_with_paragraphs.pptx")
+    notes = query_speaker_notes(
+        str(typ_sources_dir / "alignment_test.typ")    )
+    config = ConversionConfig(detect_paragraphs=True)
     converter = TypstSVGConverter(config)
     converter.convert(alignment_test_svg, output_path, speaker_notes=notes)
     return output_path
@@ -413,7 +434,7 @@ def columns_test_parsed(columns_test_svg):
 
 @pytest.fixture(scope="session")
 def columns_test_pptx(columns_test_svg, output_dir, typ_sources_dir):
-    """Convert columns_test to PPTX and return the path."""
+    """Convert columns_test to PPTX with default config (paragraph detection off)."""
     from typ2pptx.core.converter import (
         TypstSVGConverter, ConversionConfig, query_speaker_notes,
     )
@@ -421,6 +442,21 @@ def columns_test_pptx(columns_test_svg, output_dir, typ_sources_dir):
     notes = query_speaker_notes(
         str(typ_sources_dir / "columns_test.typ")    )
     config = ConversionConfig()
+    converter = TypstSVGConverter(config)
+    converter.convert(columns_test_svg, output_path, speaker_notes=notes)
+    return output_path
+
+
+@pytest.fixture(scope="session")
+def columns_test_pptx_with_paragraphs(columns_test_svg, output_dir, typ_sources_dir):
+    """Convert columns_test to PPTX with paragraph auto-detection enabled."""
+    from typ2pptx.core.converter import (
+        TypstSVGConverter, ConversionConfig, query_speaker_notes,
+    )
+    output_path = str(output_dir / "columns_test_with_paragraphs.pptx")
+    notes = query_speaker_notes(
+        str(typ_sources_dir / "columns_test.typ")    )
+    config = ConversionConfig(detect_paragraphs=True)
     converter = TypstSVGConverter(config)
     converter.convert(columns_test_svg, output_path, speaker_notes=notes)
     return output_path
