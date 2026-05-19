@@ -7,8 +7,8 @@ class TestChineseSVGParsing:
     """Test SVG parsing for Chinese content."""
 
     def test_chinese_page_count(self, chinese_test_parsed):
-        """chinese_test.typ should produce 4 slides (title + 3 content)."""
-        assert len(chinese_test_parsed.pages) == 4
+        """chinese_test.typ should produce 5 slides (section title + title + 3 content)."""
+        assert len(chinese_test_parsed.pages) == 5
 
     def test_chinese_has_text_segments(self, chinese_test_parsed):
         """Each page should have text segments."""
@@ -19,11 +19,12 @@ class TestChineseSVGParsing:
 
     def test_chinese_characters_present(self, chinese_test_parsed):
         """Chinese characters should be present in text segments."""
-        page1 = chinese_test_parsed.pages[0]
+        # Page 0 is the section title; page 1 has the content with Chinese characters
+        page1 = chinese_test_parsed.pages[1]
         all_text = "".join(s.text for s in page1.text_segments)
         # Check for Chinese characters from the test file
         assert "中文" in all_text, (
-            f"Chinese characters not found in page 1 text: '{all_text[:200]}'"
+            f"Chinese characters not found in page 2 text: '{all_text[:200]}'"
         )
 
     def test_chinese_font_variants_detected(self, chinese_test_parsed):
@@ -45,9 +46,9 @@ class TestChinesePPTXOutput:
     """Test the Chinese text PPTX output."""
 
     def test_chinese_slide_count(self, chinese_test_pptx):
-        """chinese_test.typ should produce 4 slides (title + 3 content)."""
+        """chinese_test.typ should produce 5 slides (section title + title + 3 content)."""
         prs = Presentation(chinese_test_pptx)
-        assert len(prs.slides) == 4
+        assert len(prs.slides) == 5
 
     def test_chinese_text_in_pptx(self, chinese_test_pptx):
         """Chinese text should appear in the PPTX output."""
@@ -116,7 +117,7 @@ class TestChinesePPTXOutput:
     def test_chinese_title_has_larger_font(self, chinese_test_pptx):
         """Chinese title should have a larger font size than body text."""
         prs = Presentation(chinese_test_pptx)
-        slide1 = prs.slides[0]
+        slide1 = prs.slides[1]
         title_sizes = []
         body_sizes = []
         for shape in slide1.shapes:

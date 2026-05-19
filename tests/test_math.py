@@ -27,7 +27,7 @@ class TestMathFontDetection:
     def test_math_segments_have_math_variant(self, math_test_parsed):
         """Math text segments should have font_variant='math'."""
         math_chars = set('𝑒𝑖𝜋𝑥𝑏𝑎𝑐𝑛')
-        page1 = math_test_parsed.pages[0]
+        page1 = math_test_parsed.pages[1]
         for seg in page1.text_segments:
             if any(c in seg.text for c in math_chars):
                 assert seg.font_variant == 'math', (
@@ -36,7 +36,7 @@ class TestMathFontDetection:
 
     def test_regular_text_not_math(self, math_test_parsed):
         """Regular body text should not be classified as math."""
-        page1 = math_test_parsed.pages[0]
+        page1 = math_test_parsed.pages[1]
         for seg in page1.text_segments:
             if seg.text.startswith("The "):
                 assert seg.font_variant == 'regular', (
@@ -48,9 +48,9 @@ class TestMathPPTXOutput:
     """Test the math formula PPTX output."""
 
     def test_math_slide_count(self, math_test_pptx):
-        """math_test.typ should produce 3 slides."""
+        """math_test.typ should produce 4 slides (section title + 3 content)."""
         prs = Presentation(math_test_pptx)
-        assert len(prs.slides) == 3
+        assert len(prs.slides) == 4
 
     def test_math_has_cambria_font(self, math_test_pptx):
         """Math formulas should use Cambria Math font."""
@@ -99,22 +99,22 @@ class TestMathPPTXOutput:
     def test_math_titles_are_bold(self, math_test_pptx):
         """Slide titles should be bold."""
         prs = Presentation(math_test_pptx)
-        # Check slide 1 title
-        slide1 = prs.slides[0]
+        # Section title slide (index 0) has bold "Math Formulas"
         found_bold_title = False
-        for shape in slide1.shapes:
-            if shape.has_text_frame:
-                for p in shape.text_frame.paragraphs:
-                    for run in p.runs:
-                        if "Math Formulas" in run.text and run.font.bold:
-                            found_bold_title = True
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if shape.has_text_frame:
+                    for p in shape.text_frame.paragraphs:
+                        for run in p.runs:
+                            if "Math Formulas" in run.text and run.font.bold:
+                                found_bold_title = True
         assert found_bold_title, "Title 'Math Formulas' should be bold"
 
     def test_inline_math_with_text(self, math_test_pptx):
         """Inline math should appear in the same textbox as surrounding text,
         or be positioned correctly relative to it."""
         prs = Presentation(math_test_pptx)
-        slide1 = prs.slides[0]
+        slide1 = prs.slides[1]
 
         # Check for inline math merged with text in same shape
         found_inline = False
@@ -159,7 +159,7 @@ class TestMathPPTXOutput:
         """Matrix slide should have math content (rendered as curves or text)."""
         from lxml import etree
         prs = Presentation(math_test_pptx)
-        slide3 = prs.slides[2]
+        slide3 = prs.slides[3]
 
         # Display math is now rendered as native DrawingML glyph curves
         # (MathGlyph shapes) instead of Cambria Math text runs.
@@ -192,8 +192,8 @@ class TestMathSVGParsing:
     """Test SVG parsing for math content."""
 
     def test_math_page_count(self, math_test_parsed):
-        """math_test.typ should produce 3 pages."""
-        assert len(math_test_parsed.pages) == 3
+        """math_test.typ should produce 4 pages (section title + 3 content)."""
+        assert len(math_test_parsed.pages) == 4
 
     def test_math_has_text_segments(self, math_test_parsed):
         """Each page should have text segments."""
@@ -212,7 +212,7 @@ class TestMathSVGParsing:
 
     def test_math_font_sizes_vary(self, math_test_parsed):
         """Math should have varying font sizes (main, sub/superscript)."""
-        page1 = math_test_parsed.pages[0]
+        page1 = math_test_parsed.pages[1]
         math_segs = [s for s in page1.text_segments if s.font_variant == 'math']
         if math_segs:
             sizes = {round(s.font_size, 1) for s in math_segs}

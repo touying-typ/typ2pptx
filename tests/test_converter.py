@@ -261,9 +261,9 @@ class TestPPTXOutput:
     """Test the generated PPTX files."""
 
     def test_basic_text_slide_count(self, basic_text_pptx):
-        """basic_text.typ should produce 3 slides."""
+        """basic_text.typ should produce 4 slides (section title + 3 content)."""
         prs = Presentation(basic_text_pptx)
-        assert len(prs.slides) == 3
+        assert len(prs.slides) == 4
 
     def test_basic_text_slide_size(self, basic_text_pptx):
         """Slide size should match 842x474 typst coordinates."""
@@ -432,7 +432,7 @@ class TestConvertTypstToPptx:
         )
         assert os.path.exists(result)
         prs = Presentation(result)
-        assert len(prs.slides) == 3
+        assert len(prs.slides) == 4
 
     def test_e2e_speaker_notes(self, typ_sources_dir, output_dir, typst_ts_cli):
         """Full end-to-end conversion with speaker notes."""
@@ -470,7 +470,7 @@ class TestConvertTypstToPptx:
         )
         assert os.path.exists(result)
         prs = Presentation(result)
-        assert len(prs.slides) == 3
+        assert len(prs.slides) == 4
 
     def test_unsupported_format_raises(self, output_dir):
         """Conversion of unsupported file format should raise ValueError."""

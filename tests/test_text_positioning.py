@@ -31,7 +31,7 @@ class TestTextPositioning:
     def test_body_text_left_aligned(self, basic_text_pptx):
         """Body text with bullets should be left-aligned."""
         prs = Presentation(basic_text_pptx)
-        slide2 = prs.slides[1]
+        slide2 = prs.slides[2]
 
         bullet_shapes = []
         for shape in slide2.shapes:
@@ -52,7 +52,7 @@ class TestTextPositioning:
     def test_bullets_vertically_spaced(self, basic_text_pptx):
         """Bullet points should be evenly spaced vertically."""
         prs = Presentation(basic_text_pptx)
-        slide2 = prs.slides[1]
+        slide2 = prs.slides[2]
 
         bullet_tops = []
         for shape in slide2.shapes:
@@ -94,7 +94,7 @@ class TestTextPositioning:
     def test_font_size_consistency(self, basic_text_pptx):
         """Body text should have consistent font sizes on the same slide."""
         prs = Presentation(basic_text_pptx)
-        slide2 = prs.slides[1]
+        slide2 = prs.slides[2]
 
         body_sizes = []
         for shape in slide2.shapes:
@@ -113,7 +113,7 @@ class TestTextPositioning:
     def test_title_larger_than_body(self, basic_text_pptx):
         """Title font size should be larger than body text."""
         prs = Presentation(basic_text_pptx)
-        slide2 = prs.slides[1]
+        slide2 = prs.slides[2]
 
         title_size = None
         body_size = None
@@ -136,7 +136,7 @@ class TestTextPositioning:
     def test_colored_text_preserved(self, basic_text_pptx):
         """Red and blue text should have correct colors."""
         prs = Presentation(basic_text_pptx)
-        slide3 = prs.slides[2]
+        slide3 = prs.slides[3]
 
         found_red = False
         found_blue = False
@@ -158,7 +158,7 @@ class TestTextPositioning:
     def test_inline_code_different_font(self, basic_text_pptx):
         """Inline code should use monospace font."""
         prs = Presentation(basic_text_pptx)
-        slide3 = prs.slides[2]
+        slide3 = prs.slides[3]
 
         found_mono = False
         for shape in slide3.shapes:
@@ -197,7 +197,7 @@ class TestMultiRunTextbox:
     def test_bold_italic_same_textbox(self, basic_text_pptx):
         """Bold and italic text on the same line should be in one textbox."""
         prs = Presentation(basic_text_pptx)
-        slide1 = prs.slides[0]
+        slide1 = prs.slides[1]
 
         for shape in slide1.shapes:
             if shape.has_text_frame:
@@ -220,7 +220,7 @@ class TestMultiRunTextbox:
     def test_multi_run_preserves_order(self, basic_text_pptx):
         """Text order should be preserved in multi-run textboxes."""
         prs = Presentation(basic_text_pptx)
-        slide1 = prs.slides[0]
+        slide1 = prs.slides[1]
 
         for shape in slide1.shapes:
             if shape.has_text_frame:
@@ -239,7 +239,7 @@ class TestMultiRunTextbox:
     def test_bullet_each_on_own_line(self, basic_text_pptx):
         """Each bullet point should be a separate textbox."""
         prs = Presentation(basic_text_pptx)
-        slide2 = prs.slides[1]
+        slide2 = prs.slides[2]
 
         bullet_count = 0
         for shape in slide2.shapes:

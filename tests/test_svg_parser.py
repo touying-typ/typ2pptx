@@ -143,8 +143,8 @@ class TestParseTypstSVG:
     """Test full SVG parsing with actual typst output."""
 
     def test_basic_text_page_count(self, basic_text_parsed):
-        """basic_text.typ has 3 slides."""
-        assert len(basic_text_parsed.pages) == 3
+        """basic_text.typ has 4 slides (section title + 3 content)."""
+        assert len(basic_text_parsed.pages) == 4
 
     def test_basic_text_viewbox_width(self, basic_text_parsed):
         """Viewbox width should be 842 (16:9 at typst-ts scale)."""
@@ -152,13 +152,13 @@ class TestParseTypstSVG:
 
     def test_basic_text_viewbox_height_is_total(self, basic_text_parsed):
         """Viewbox height is total height of all pages stacked vertically."""
-        # 3 pages at 474px each = 1422px total
-        assert basic_text_parsed.viewbox_height == pytest.approx(1422.0, abs=2.0)
+        # 4 pages at 474px each = 1896px total
+        assert basic_text_parsed.viewbox_height == pytest.approx(1896.0, abs=2.0)
 
     def test_basic_text_page_nums(self, basic_text_parsed):
-        """Pages should be numbered 1-3."""
+        """Pages should be numbered 1-4."""
         page_nums = [p.page_num for p in basic_text_parsed.pages]
-        assert page_nums == [1, 2, 3]
+        assert page_nums == [1, 2, 3, 4]
 
     def test_basic_text_has_text_segments(self, basic_text_parsed):
         """Each page should have text segments."""

@@ -299,8 +299,8 @@ class TestDisplayMathAsCurves:
         prs = Presentation(math_test_pptx)
         ns = {'p': 'http://schemas.openxmlformats.org/presentationml/2006/main'}
 
-        # Slide 2 has display integrals/sums
-        slide2 = prs.slides[1]
+        # Slide 2 has display integrals/sums (index 2 due to section title at index 0)
+        slide2 = prs.slides[2]
         sp_tree = slide2.shapes._spTree
         math_glyph_count = 0
         for sp in sp_tree.findall('.//p:sp', ns):
@@ -320,7 +320,7 @@ class TestDisplayMathAsCurves:
             'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
         }
 
-        slide2 = prs.slides[1]
+        slide2 = prs.slides[2]
         sp_tree = slide2.shapes._spTree
         filled_count = 0
         for sp in sp_tree.findall('.//p:sp', ns):
@@ -334,7 +334,7 @@ class TestDisplayMathAsCurves:
     def test_inline_math_still_uses_text(self, math_test_pptx):
         """Inline math (slide 1) should still use Cambria Math text runs."""
         prs = Presentation(math_test_pptx)
-        slide1 = prs.slides[0]
+        slide1 = prs.slides[1]
 
         has_cambria = False
         for shape in slide1.shapes:
@@ -353,8 +353,8 @@ class TestDisplayMathAsCurves:
         prs = Presentation(math_test_pptx)
         ns = {'p': 'http://schemas.openxmlformats.org/presentationml/2006/main'}
 
-        # Slide 2 has display integrals/sums
-        slide2 = prs.slides[1]
+        # Slide 2 has display integrals/sums (index 2 due to section title at index 0)
+        slide2 = prs.slides[2]
         sp_tree = slide2.shapes._spTree
         grp_count = 0
         for grp in sp_tree.findall(f'.//p:grpSp', ns):
