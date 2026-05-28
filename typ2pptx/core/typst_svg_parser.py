@@ -1039,7 +1039,17 @@ def parse_typst_svg(svg_path: str) -> TypstSVGData:
     Returns:
         TypstSVGData with pages, text segments, shapes, and metadata
     """
-    tree = ET.parse(svg_path)
+    # Clean illegal XML control characters (0x00-0x08, 0x0B-0x0C, 0x0E-0x1F)
+    # that typst-ts-cli may embed in glyph path data. These bytes are not
+    # valid in XML 1.0 and cause ET.parse to raise ParseError.
+    import io as _io
+    with open(svg_path, 'rb') as _f:
+        _raw = _f.read()
+    _cleaned = bytes(
+        b if b >= 0x20 or b in (0x09, 0x0A, 0x0D) else 0x20
+        for b in _raw
+    )
+    tree = ET.parse(_io.BytesIO(_cleaned))
     root = tree.getroot()
 
     # Parse viewBox
