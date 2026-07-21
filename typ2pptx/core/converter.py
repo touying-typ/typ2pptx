@@ -64,6 +64,25 @@ class ConversionConfig:
     # line becomes its own textbox. Set to True to enable the heuristic (useful
     # for prose-heavy slides like #lorem(200) or multi-column layouts).
     detect_paragraphs: bool = False
+    # Points per SVG font-size unit. The default 0.75 treats SVG units as
+    # CSS px at 96 DPI (1px = 0.75pt). Set to 1.0 for unit spaces where
+    # 1 SVG unit = 1pt (e.g. typst.ts SVG, whose viewBox matches the page
+    # size in typst pt).
+    font_size_scale: float = 0.75
+    # EMU per SVG unit for geometry (positions, sizes, stroke widths, slide
+    # dimensions). None derives 12700 * font_size_scale so geometry and font
+    # sizes always share one physical scale: the default font_size_scale of
+    # 0.75 yields the classic 9525 (96 DPI), while pt-true unit spaces
+    # (font_size_scale=1.0) yield 12700. Overriding only one of the pair
+    # makes text render 12700 * font_size_scale / emu_per_px larger than
+    # its layout boxes.
+    emu_per_px: Optional[float] = None
+
+    def resolved_emu_per_px(self) -> float:
+        """Geometry scale in EMU per SVG unit, paired with font_size_scale."""
+        if self.emu_per_px is not None:
+            return float(self.emu_per_px)
+        return 12700.0 * self.font_size_scale
 
 
 def _compute_text_position(text_seg: TextSegment, page_width: float, page_height: float) -> Tuple[float, float, float, float]:
@@ -974,6 +993,7 @@ class TypstSVGConverter:
 
     def __init__(self, config: ConversionConfig = None):
         self.config = config or ConversionConfig()
+        self._emu_per_px = self.config.resolved_emu_per_px()
         self._svg_data: Optional[TypstSVGData] = None
 
     def convert(self, svg_path: str, output_path: str,
@@ -1019,8 +1039,8 @@ class TypstSVGConverter:
             page_height = self._svg_data.viewbox_height
 
         # Set slide size in EMU
-        prs.slide_width = Emu(int(page_width * EMU_PER_PX))
-        prs.slide_height = Emu(int(page_height * EMU_PER_PX))
+        prs.slide_width = Emu(int(page_width * self._emu_per_px))
+        prs.slide_height = Emu(int(page_height * self._emu_per_px))
 
         if self.config.verbose:
             print(f"Slide size: {page_width}x{page_height} px = "
@@ -1131,10 +1151,10 @@ class TypstSVGConverter:
                 continue
 
             # Link bounding box in EMU
-            link_x = link.x * EMU_PER_PX
-            link_y = link.y * EMU_PER_PX
-            link_r = (link.x + link.width) * EMU_PER_PX
-            link_b = (link.y + link.height) * EMU_PER_PX
+            link_x = link.x * self._emu_per_px
+            link_y = link.y * self._emu_per_px
+            link_r = (link.x + link.width) * self._emu_per_px
+            link_b = (link.y + link.height) * self._emu_per_px
             link_cx = (link_x + link_r) / 2  # Center of link region
 
             # Find shapes that overlap with this link region
@@ -1293,10 +1313,10 @@ class TypstSVGConverter:
 
         shape = slide.shapes.add_shape(
             1,  # MSO_SHAPE.RECTANGLE
-            Emu(int(x * EMU_PER_PX)),
-            Emu(int(y * EMU_PER_PX)),
-            Emu(int(w * EMU_PER_PX)),
-            Emu(int(h * EMU_PER_PX)),
+            Emu(int(x * self._emu_per_px)),
+            Emu(int(y * self._emu_per_px)),
+            Emu(int(w * self._emu_per_px)),
+            Emu(int(h * self._emu_per_px)),
         )
 
         # Set fill (with alpha support)
@@ -1326,7 +1346,7 @@ class TypstSVGConverter:
             hex_color = _parse_color(stroke)
             if hex_color:
                 shape.line.color.rgb = RGBColor.from_string(hex_color)
-                shape.line.width = Emu(int(stroke_width * EMU_PER_PX * abs(sx)))
+                shape.line.width = Emu(int(stroke_width * self._emu_per_px * abs(sx)))
         else:
             shape.line.fill.background()
 
@@ -1349,10 +1369,10 @@ class TypstSVGConverter:
 
         shape = slide.shapes.add_shape(
             9,  # MSO_SHAPE.OVAL
-            Emu(int(x * EMU_PER_PX)),
-            Emu(int(y * EMU_PER_PX)),
-            Emu(int(w * EMU_PER_PX)),
-            Emu(int(h * EMU_PER_PX)),
+            Emu(int(x * self._emu_per_px)),
+            Emu(int(y * self._emu_per_px)),
+            Emu(int(w * self._emu_per_px)),
+            Emu(int(h * self._emu_per_px)),
         )
 
         fill_color = elem.get('fill', 'none')
@@ -1379,7 +1399,7 @@ class TypstSVGConverter:
             hex_color = _parse_color(stroke)
             if hex_color:
                 shape.line.color.rgb = RGBColor.from_string(hex_color)
-                shape.line.width = Emu(int(stroke_width * EMU_PER_PX))
+                shape.line.width = Emu(int(stroke_width * self._emu_per_px))
         else:
             shape.line.fill.background()
 
@@ -1403,10 +1423,10 @@ class TypstSVGConverter:
 
         shape = slide.shapes.add_shape(
             9,  # MSO_SHAPE.OVAL
-            Emu(int(x * EMU_PER_PX)),
-            Emu(int(y * EMU_PER_PX)),
-            Emu(int(w * EMU_PER_PX)),
-            Emu(int(h * EMU_PER_PX)),
+            Emu(int(x * self._emu_per_px)),
+            Emu(int(y * self._emu_per_px)),
+            Emu(int(w * self._emu_per_px)),
+            Emu(int(h * self._emu_per_px)),
         )
 
         fill_color = elem.get('fill', 'none')
@@ -1441,10 +1461,10 @@ class TypstSVGConverter:
         # Line connector
         shape = slide.shapes.add_connector(
             1,  # MSO_CONNECTOR.STRAIGHT
-            Emu(int(x1 * EMU_PER_PX)),
-            Emu(int(y1 * EMU_PER_PX)),
-            Emu(int(x2 * EMU_PER_PX)),
-            Emu(int(y2 * EMU_PER_PX)),
+            Emu(int(x1 * self._emu_per_px)),
+            Emu(int(y1 * self._emu_per_px)),
+            Emu(int(x2 * self._emu_per_px)),
+            Emu(int(y2 * self._emu_per_px)),
         )
 
         stroke = elem.get('stroke', '#000000')
@@ -1454,7 +1474,7 @@ class TypstSVGConverter:
                 shape.line.color.rgb = RGBColor.from_string(hex_color)
 
         stroke_width = float(elem.get('stroke-width', '1'))
-        shape.line.width = Emu(int(stroke_width * EMU_PER_PX * abs(sx)))
+        shape.line.width = Emu(int(stroke_width * self._emu_per_px * abs(sx)))
 
     def _rasterize_image_to_png(self, image_data: bytes, image_format: str,
                                 width_px: int = 0, height_px: int = 0) -> bytes:
@@ -1609,10 +1629,10 @@ class TypstSVGConverter:
         if w <= 0 or h <= 0:
             return
 
-        left_emu = Emu(int(x * EMU_PER_PX))
-        top_emu = Emu(int(y * EMU_PER_PX))
-        width_emu = Emu(int(w * EMU_PER_PX))
-        height_emu = Emu(int(h * EMU_PER_PX))
+        left_emu = Emu(int(x * self._emu_per_px))
+        top_emu = Emu(int(y * self._emu_per_px))
+        width_emu = Emu(int(w * self._emu_per_px))
+        height_emu = Emu(int(h * self._emu_per_px))
 
         if href.startswith('data:'):
             # Data URI
@@ -1717,6 +1737,7 @@ class TypstSVGConverter:
             offset_y=dy + extra_dy * abs(sy),
             scale_x=sx,
             scale_y=sy,
+            emu_per_px=self._emu_per_px,
         )
 
         if not path_xml or width <= 0 or height <= 0:
@@ -1767,7 +1788,7 @@ class TypstSVGConverter:
                     s_alpha = s_alpha * float(s_opacity)
                 except ValueError:
                     pass
-                sw_emu = int(stroke_width * abs(sx) * EMU_PER_PX)
+                sw_emu = int(stroke_width * abs(sx) * self._emu_per_px)
                 if s_alpha < 1.0:
                     s_alpha_val = int(s_alpha * 100000)
                     stroke_xml = f'<a:ln w="{sw_emu}"><a:solidFill><a:srgbClr val="{hex_stroke}"><a:alpha val="{s_alpha_val}"/></a:srgbClr></a:solidFill></a:ln>'
@@ -1775,8 +1796,8 @@ class TypstSVGConverter:
                     stroke_xml = f'<a:ln w="{sw_emu}"><a:solidFill><a:srgbClr val="{hex_stroke}"/></a:solidFill></a:ln>'
 
         # Build geometry XML
-        w_emu = int(width * EMU_PER_PX)
-        h_emu = int(height * EMU_PER_PX)
+        w_emu = int(width * self._emu_per_px)
+        h_emu = int(height * self._emu_per_px)
 
         geom_xml = f'''<a:custGeom>
 <a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/>
@@ -1788,8 +1809,8 @@ class TypstSVGConverter:
 
         # Build the full <p:sp> shape XML
         shape_id = len(slide.shapes) + 100  # Avoid ID conflicts
-        off_x_emu = int(min_x * EMU_PER_PX)
-        off_y_emu = int(min_y * EMU_PER_PX)
+        off_x_emu = int(min_x * self._emu_per_px)
+        off_y_emu = int(min_y * self._emu_per_px)
 
         # Ensure non-negative position
         if off_x_emu < 0:
@@ -1969,34 +1990,34 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 
         # Build freeform shape
         freeform = slide.shapes.build_freeform(
-            Emu(int(min_x * EMU_PER_PX)),
-            Emu(int(min_y * EMU_PER_PX)),
+            Emu(int(min_x * self._emu_per_px)),
+            Emu(int(min_y * self._emu_per_px)),
         )
 
         # Move to first point (relative to bounding box origin)
         freeform.move_to(
-            Emu(int((points[0][0] - min_x) * EMU_PER_PX)),
-            Emu(int((points[0][1] - min_y) * EMU_PER_PX)),
+            Emu(int((points[0][0] - min_x) * self._emu_per_px)),
+            Emu(int((points[0][1] - min_y) * self._emu_per_px)),
         )
 
         # Line to remaining points
         for px, py in points[1:]:
             freeform.line_to(
-                Emu(int((px - min_x) * EMU_PER_PX)),
-                Emu(int((py - min_y) * EMU_PER_PX)),
+                Emu(int((px - min_x) * self._emu_per_px)),
+                Emu(int((py - min_y) * self._emu_per_px)),
             )
 
         # Close if polygon
         tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
         if tag == 'polygon':
             freeform.line_to(
-                Emu(int((points[0][0] - min_x) * EMU_PER_PX)),
-                Emu(int((points[0][1] - min_y) * EMU_PER_PX)),
+                Emu(int((points[0][0] - min_x) * self._emu_per_px)),
+                Emu(int((points[0][1] - min_y) * self._emu_per_px)),
             )
 
         shape = freeform.convert_to_shape(
-            Emu(int(width * EMU_PER_PX)),
-            Emu(int(height * EMU_PER_PX)),
+            Emu(int(width * self._emu_per_px)),
+            Emu(int(height * self._emu_per_px)),
         )
 
     def _convert_page_texts(
@@ -2282,10 +2303,10 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
         from pptx.enum.text import MSO_AUTO_SIZE, PP_ALIGN
 
         # Convert to EMU
-        left = Emu(int(x * EMU_PER_PX))
-        top = Emu(int(y * EMU_PER_PX))
-        width = Emu(int(w * EMU_PER_PX))
-        height = Emu(int(h * EMU_PER_PX))
+        left = Emu(int(x * self._emu_per_px))
+        top = Emu(int(y * self._emu_per_px))
+        width = Emu(int(w * self._emu_per_px))
+        height = Emu(int(h * self._emu_per_px))
 
         # Ensure positive values
         if left < 0:
@@ -2351,7 +2372,7 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
             run.font.name = font_props['font_family']
 
             # Font size
-            font_size_pt = seg.font_size * 0.75  # px to pt
+            font_size_pt = seg.font_size * self.config.font_size_scale
             if font_size_pt > 0:
                 run.font.size = Pt(font_size_pt)
 
@@ -2370,12 +2391,12 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                         # Superscript (baseline above anchor → raised text)
                         offset_pct = max(20, min(50, int(-bl_diff / dominant_size * 100)))
                         self._set_run_baseline(run, offset_pct)  # positive = raised
-                        run.font.size = Pt(dominant_size * 0.75)
+                        run.font.size = Pt(dominant_size * self.config.font_size_scale)
                     elif bl_diff > dominant_size * 0.08:
                         # Subscript (baseline below anchor → lowered text)
                         offset_pct = max(20, min(50, int(bl_diff / dominant_size * 100)))
                         self._set_run_baseline(run, -offset_pct)  # negative = lowered
-                        run.font.size = Pt(dominant_size * 0.75)
+                        run.font.size = Pt(dominant_size * self.config.font_size_scale)
 
             # Color
             hex_color = _parse_color(seg.fill_color)
@@ -2426,10 +2447,10 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
             bb_h = max_font * len(lines) * 1.5
 
         # Convert to EMU
-        left = Emu(max(0, int(bb_x * EMU_PER_PX)))
-        top = Emu(max(0, int(bb_y * EMU_PER_PX)))
-        width = Emu(max(int(bb_w * EMU_PER_PX), 9525))
-        height = Emu(max(int(bb_h * EMU_PER_PX), 9525))
+        left = Emu(max(0, int(bb_x * self._emu_per_px)))
+        top = Emu(max(0, int(bb_y * self._emu_per_px)))
+        width = Emu(max(int(bb_w * self._emu_per_px), int(self._emu_per_px)))
+        height = Emu(max(int(bb_h * self._emu_per_px), int(self._emu_per_px)))
 
         txBox = slide.shapes.add_textbox(left, top, width, height)
         tf = txBox.text_frame
@@ -2508,7 +2529,7 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                 run.font.name = font_props['font_family']
 
                 # Font size
-                font_size_pt = seg.font_size * 0.75
+                font_size_pt = seg.font_size * self.config.font_size_scale
                 if font_size_pt > 0:
                     run.font.size = Pt(font_size_pt)
 
@@ -2524,12 +2545,12 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                             # Superscript (above anchor → positive baseline)
                             offset_pct = max(20, min(50, int(-bl_diff / line_dominant_size * 100)))
                             self._set_run_baseline(run, offset_pct)
-                            run.font.size = Pt(line_dominant_size * 0.75)
+                            run.font.size = Pt(line_dominant_size * self.config.font_size_scale)
                         elif bl_diff > line_dominant_size * 0.08:
                             # Subscript (below anchor → negative baseline)
                             offset_pct = max(20, min(50, int(bl_diff / line_dominant_size * 100)))
                             self._set_run_baseline(run, -offset_pct)
-                            run.font.size = Pt(line_dominant_size * 0.75)
+                            run.font.size = Pt(line_dominant_size * self.config.font_size_scale)
 
                 # Color
                 hex_color = _parse_color(seg.fill_color)
@@ -2781,10 +2802,10 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                 bb_h = dominant_size * 1.5 * len(row_segments)
 
             # Create textbox
-            left = Emu(max(0, int(bb_x * EMU_PER_PX)))
-            top = Emu(max(0, int(bb_y * EMU_PER_PX)))
-            width = Emu(max(int(bb_w * EMU_PER_PX), 9525))
-            height = Emu(max(int(bb_h * EMU_PER_PX), 9525))
+            left = Emu(max(0, int(bb_x * self._emu_per_px)))
+            top = Emu(max(0, int(bb_y * self._emu_per_px)))
+            width = Emu(max(int(bb_w * self._emu_per_px), int(self._emu_per_px)))
+            height = Emu(max(int(bb_h * self._emu_per_px), int(self._emu_per_px)))
 
             txBox = slide.shapes.add_textbox(left, top, width, height)
             tf = txBox.text_frame
@@ -2825,7 +2846,7 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                     run.font.name = 'Cambria Math'
 
                     # Set font size based on the segment's actual size
-                    font_size_pt = seg.font_size * 0.75
+                    font_size_pt = seg.font_size * self.config.font_size_scale
                     if font_size_pt > 0:
                         run.font.size = Pt(font_size_pt)
 
@@ -2842,13 +2863,13 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                             offset_pct = max(20, min(50, int(-bl_diff / dominant_size * 100)))
                             self._set_run_baseline(run, offset_pct)  # positive = raised
                             # Use dominant font size — PPTX baseline handles shrinking
-                            run.font.size = Pt(dominant_size * 0.75)
+                            run.font.size = Pt(dominant_size * self.config.font_size_scale)
                         elif bl_diff > dominant_size * 0.08:
                             # Subscript (baseline below anchor → negative baseline in PPTX)
                             offset_pct = max(20, min(50, int(bl_diff / dominant_size * 100)))
                             self._set_run_baseline(run, -offset_pct)  # negative = lowered
                             # Use dominant font size — PPTX baseline handles shrinking
-                            run.font.size = Pt(dominant_size * 0.75)
+                            run.font.size = Pt(dominant_size * self.config.font_size_scale)
 
                     # Color
                     hex_color = _parse_color(seg.fill_color)
@@ -2954,16 +2975,17 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                         offset_y=glyph_y,
                         scale_x=scale,
                         scale_y=-scale,  # Y-flip for font coordinates
+                        emu_per_px=self._emu_per_px,
                     )
 
                     if not path_xml or width <= 0 or height <= 0:
                         continue
 
                     # Build the individual glyph shape XML
-                    w_emu = int(width * EMU_PER_PX)
-                    h_emu = int(height * EMU_PER_PX)
-                    off_x_emu = int(min_x * EMU_PER_PX)
-                    off_y_emu = int(min_y * EMU_PER_PX)
+                    w_emu = int(width * self._emu_per_px)
+                    h_emu = int(height * self._emu_per_px)
+                    off_x_emu = int(min_x * self._emu_per_px)
+                    off_y_emu = int(min_y * self._emu_per_px)
 
                     shape_id = len(slide.shapes) + 200 + len(glyph_shapes_xml)
 
@@ -3031,7 +3053,7 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                         grp_cy = max(all_b) - grp_y
                     else:
                         grp_x = grp_y = 0
-                        grp_cx = grp_cy = EMU_PER_PX
+                        grp_cx = grp_cy = self._emu_per_px
 
                     grp_id = len(slide.shapes) + 300 + len(sp_tree)
                     ns_p = 'http://schemas.openxmlformats.org/presentationml/2006/main'
