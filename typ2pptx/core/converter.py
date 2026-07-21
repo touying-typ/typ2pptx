@@ -1041,6 +1041,12 @@ class TypstSVGConverter:
         # Set slide size in EMU
         prs.slide_width = Emu(int(page_width * self._emu_per_px))
         prs.slide_height = Emu(int(page_height * self._emu_per_px))
+        # Drop the template's stale sldSz type (e.g. "screen4x3"): the size
+        # above is custom, and a wrong type hint confuses PowerPoint's
+        # size dialog.
+        prs._element.find(
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}sldSz'
+        ).attrib.pop('type', None)
 
         if self.config.verbose:
             print(f"Slide size: {page_width}x{page_height} px = "
