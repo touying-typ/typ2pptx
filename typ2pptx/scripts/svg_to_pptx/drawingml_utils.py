@@ -132,9 +132,14 @@ DASH_PRESETS = {
 # Coordinate helpers
 # ---------------------------------------------------------------------------
 
-def px_to_emu(px: float) -> int:
-    """Convert SVG pixels to EMU."""
-    return round(px * EMU_PER_PX)
+def px_to_emu(px: float, emu_per_px: float | None = None) -> int:
+    """Convert SVG units to EMU.
+
+    emu_per_px overrides the module default (9525, CSS px at 96 DPI) for
+    unit spaces with a different physical scale, e.g. 12700 when 1 SVG
+    unit = 1pt.
+    """
+    return round(px * (EMU_PER_PX if emu_per_px is None else emu_per_px))
 
 
 def _f(val: str | None, default: float = 0.0) -> float:

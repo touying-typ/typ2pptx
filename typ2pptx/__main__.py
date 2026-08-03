@@ -62,6 +62,20 @@ def main():
         help='Display/block math rendering: "text" (Cambria Math), "glyph" (glyph curves), or "auto" (heuristic). Default: glyph',
     )
     parser.add_argument(
+        '--font-size-scale',
+        type=float,
+        default=0.75,
+        help='Points per SVG font-size unit (default: 0.75 for CSS px at 96 DPI; '
+             'use 1.0 when 1 SVG unit = 1pt, e.g. typst.ts SVG)',
+    )
+    parser.add_argument(
+        '--emu-per-px',
+        type=float,
+        default=None,
+        help='EMU per SVG unit for geometry (default: 12700 x font-size-scale, '
+             'so geometry and font sizes share one physical scale)',
+    )
+    parser.add_argument(
         '--detect-paragraphs',
         action='store_true',
         default=False,
@@ -93,6 +107,8 @@ def main():
         inline_math_mode=args.inline_math_mode,
         display_math_mode=args.display_math_mode,
         detect_paragraphs=args.detect_paragraphs,
+        font_size_scale=args.font_size_scale,
+        emu_per_px=args.emu_per_px,
     )
 
     try:

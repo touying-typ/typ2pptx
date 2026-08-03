@@ -369,6 +369,7 @@ def path_commands_to_drawingml(
     offset_y: float = 0,
     scale_x: float = 1.0,
     scale_y: float = 1.0,
+    emu_per_px: float | None = None,
 ) -> tuple[str, float, float, float, float]:
     """Convert normalized path commands to DrawingML <a:path> inner XML.
 
@@ -408,18 +409,18 @@ def path_commands_to_drawingml(
     parts: list[str] = []
     for cmd in commands:
         if cmd.cmd == 'M':
-            x_emu = px_to_emu(cmd.args[0] * scale_x + offset_x - min_x)
-            y_emu = px_to_emu(cmd.args[1] * scale_y + offset_y - min_y)
+            x_emu = px_to_emu(cmd.args[0] * scale_x + offset_x - min_x, emu_per_px)
+            y_emu = px_to_emu(cmd.args[1] * scale_y + offset_y - min_y, emu_per_px)
             parts.append(f'<a:moveTo><a:pt x="{x_emu}" y="{y_emu}"/></a:moveTo>')
         elif cmd.cmd == 'L':
-            x_emu = px_to_emu(cmd.args[0] * scale_x + offset_x - min_x)
-            y_emu = px_to_emu(cmd.args[1] * scale_y + offset_y - min_y)
+            x_emu = px_to_emu(cmd.args[0] * scale_x + offset_x - min_x, emu_per_px)
+            y_emu = px_to_emu(cmd.args[1] * scale_y + offset_y - min_y, emu_per_px)
             parts.append(f'<a:lnTo><a:pt x="{x_emu}" y="{y_emu}"/></a:lnTo>')
         elif cmd.cmd == 'C':
             pts = []
             for i in range(0, 6, 2):
-                x_emu = px_to_emu(cmd.args[i] * scale_x + offset_x - min_x)
-                y_emu = px_to_emu(cmd.args[i + 1] * scale_y + offset_y - min_y)
+                x_emu = px_to_emu(cmd.args[i] * scale_x + offset_x - min_x, emu_per_px)
+                y_emu = px_to_emu(cmd.args[i + 1] * scale_y + offset_y - min_y, emu_per_px)
                 pts.append(f'<a:pt x="{x_emu}" y="{y_emu}"/>')
             parts.append(f'<a:cubicBezTo>{"".join(pts)}</a:cubicBezTo>')
         elif cmd.cmd == 'Z':
