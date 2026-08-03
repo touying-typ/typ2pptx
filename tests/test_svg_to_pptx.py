@@ -239,6 +239,15 @@ class TestBuildGradientFill:
         assert '<a:gs pos="0">' in xml
         assert '<a:gs pos="100000">' in xml
 
+    def test_default_linear_gradient_is_horizontal(self):
+        grad = _svg_elem('linearGradient', {})
+        grad.append(_svg_elem('stop', {'offset': '0', 'stop-color': '#ffffff'}))
+        grad.append(_svg_elem('stop', {'offset': '1', 'stop-color': '#000000'}))
+
+        xml = build_gradient_fill(grad)
+
+        assert '<a:lin ang="0"' in xml
+
     def test_radial_gradient(self):
         grad = _svg_elem('radialGradient', {})
         stop1 = _svg_elem('stop', {'offset': '0', 'stop-color': '#ffffff'})
@@ -982,6 +991,14 @@ class TestConvertContext:
         grandchild = child.child(0, 0, 0.5, 0.5)
         assert grandchild.scale_x == pytest.approx(1.0)
         assert grandchild.scale_y == pytest.approx(1.5)
+
+    def test_first_matrix_child_keeps_scalar_ancestor_transform(self):
+        parent = _make_ctx().child(10, 20, 2.0, 3.0)
+
+        child = parent.child(transform_matrix=(1, 0, 0, 1, 5, 7))
+
+        assert child.use_transform_matrix is True
+        assert child.transform_matrix == pytest.approx((2, 0, 0, 3, 20, 41))
 
     def test_opacity_multiplied(self):
         ctx = _make_ctx(inherited_styles={'opacity': '0.5'})

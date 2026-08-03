@@ -86,7 +86,7 @@ def build_gradient_fill(
         x1 = parse_grad_coord(grad_elem.get('x1', '0'))
         y1 = parse_grad_coord(grad_elem.get('y1', '0'))
         x2 = parse_grad_coord(grad_elem.get('x2', '1'))
-        y2 = parse_grad_coord(grad_elem.get('y2', '1'))
+        y2 = parse_grad_coord(grad_elem.get('y2', '0'))
 
         angle_rad = math.atan2(y2 - y1, x2 - x1)
         angle_deg = math.degrees(angle_rad)

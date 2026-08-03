@@ -347,7 +347,7 @@ tests/
 
 ### ppt-master Attribution
 
-The file `typ2pptx/scripts/svg_to_shapes.py` is adapted from the [ppt-master](https://github.com/niccolocorsani/ppt-master) project, which provides the core SVG path to DrawingML conversion pipeline:
+The SVG-to-DrawingML modules under `typ2pptx/scripts/svg_to_pptx/`, exposed through `typ2pptx/scripts/svg_to_shapes.py`, are adapted from [PPT Master](https://github.com/hugohe3/ppt-master), which provides the core SVG path-to-DrawingML pipeline:
 
 - `parse_svg_path()` -- tokenizes SVG path `d` attributes into structured commands
 - `svg_path_to_absolute()` -- converts relative path commands to absolute coordinates

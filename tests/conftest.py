@@ -10,8 +10,12 @@ PROJECT_DIR = TESTS_DIR.parent
 TYP_SOURCES_DIR = TESTS_DIR / "typ_sources"
 OUTPUT_DIR = TESTS_DIR / "output"
 
-# Tool paths
-TYPST_TS_CLI = shutil.which("typst-ts-cli") or "/home/admin/bin/typst-ts-cli"
+# Tool paths. CI and local development can point at a temporary download
+# without copying a platform-specific binary into the repository.
+TYPST_TS_CLI = (
+    os.environ.get("TYP2PPTX_TEST_TYPST_TS_CLI")
+    or shutil.which("typst-ts-cli")
+)
 
 
 @pytest.fixture(scope="session")
@@ -30,6 +34,11 @@ def typ_sources_dir():
 @pytest.fixture(scope="session")
 def typst_ts_cli():
     """Return typst-ts-cli path."""
+    if not TYPST_TS_CLI or not Path(TYPST_TS_CLI).is_file():
+        pytest.skip(
+            "typst-ts-cli is unavailable; set TYP2PPTX_TEST_TYPST_TS_CLI "
+            "to run compiler integration tests"
+        )
     return TYPST_TS_CLI
 
 

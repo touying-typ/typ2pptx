@@ -2,6 +2,7 @@
 import os
 import pytest
 from pathlib import Path
+from types import SimpleNamespace
 from pptx import Presentation
 from pptx.util import Emu
 
@@ -205,6 +206,30 @@ class TestConversionConfig:
 
 class TestCompileTypstToSvg:
     """Test SVG compilation from .typ files."""
+
+    def test_subprocess_output_is_decoded_as_utf8(self, tmp_path, monkeypatch):
+        """Compiler diagnostics must not depend on the host locale."""
+        typ_path = tmp_path / "slides.typ"
+        output_path = tmp_path / "slides.svg"
+        typ_path.write_text("= Test\n", encoding="utf-8")
+        captured = {}
+
+        def fake_run(command, **kwargs):
+            captured["command"] = command
+            captured["kwargs"] = kwargs
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr("typ2pptx.core.converter.subprocess.run", fake_run)
+
+        result = compile_typst_to_svg(
+            str(typ_path),
+            output_svg=str(output_path),
+            typst_ts_cli="typst-ts-cli",
+        )
+
+        assert result == str(output_path)
+        assert captured["kwargs"]["encoding"] == "utf-8"
+        assert captured["kwargs"]["errors"] == "replace"
 
     def test_basic_text_compiles(self, typ_sources_dir, typst_ts_cli):
         """basic_text.typ should compile to SVG successfully."""

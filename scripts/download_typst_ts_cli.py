@@ -7,6 +7,8 @@ Usage:
     python scripts/download_typst_ts_cli.py --version v0.6.0
 """
 
+from __future__ import annotations
+
 import argparse
 import io
 import os
