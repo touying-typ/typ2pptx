@@ -107,6 +107,20 @@ def main():
             '(default: Consolas). Same rationale as --latin-font.'
         ),
     )
+    parser.add_argument(
+        '--display-font',
+        default=None,
+        help=(
+            'Real font family name for text detected as display/headline '
+            'size (a non-mono prefix rendering well larger than the '
+            'document\'s body text, e.g. 1.4x+). Headline and body copy are '
+            'often genuinely different families (a brand\'s fonts.display '
+            'vs fonts.body), not just different weights of one family -- '
+            'pass this to avoid a too-wide/wrong-family substitution on '
+            'title slides. Default: falls back to --latin-font (previous '
+            'behavior, unchanged if you don\'t pass this).'
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -131,6 +145,7 @@ def main():
         emu_per_px=args.emu_per_px,
         default_latin_font=args.latin_font,
         default_mono_font=args.mono_font,
+        default_display_font=args.display_font,
     )
 
     try:

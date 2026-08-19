@@ -855,6 +855,38 @@ def _prescan_font_variants(
                 # a hidden near-duplicate of the regular mono face.
                 prefix_to_style[p] = 'monobold'
 
+    # Step 5: display-size detection. A caller-supplied --display-font is
+    # only useful if we can tell WHICH non-mono prefixes are actually the
+    # large display/headline face rather than body text -- typst decks
+    # commonly set headlines in a different family+larger size than body
+    # copy (e.g. a serif display face over a sans body face), and forcing
+    # everything non-mono to one --latin-font (as the mono fix's caller-
+    # supplied-name approach otherwise would) causes wrong-width overflow/
+    # wrapping on headline slides, not just a color-of-bikeshed mismatch.
+    # Reuse the per-prefix scale data already collected above: any
+    # non-mono, non-math prefix whose average transform scale is well above
+    # the regular body prefix's average scale is almost certainly a display/
+    # heading face, however it got bucketed for bold/italic. This only ever
+    # ADDS a '-display' suffix (never changes bold/italic classification),
+    # so it's inert unless a caller actually passes --display-font.
+    def _avg_scale(prefix: str) -> Optional[float]:
+        scales = prefix_scales.get(prefix)
+        if not scales:
+            return None
+        return sum(scales) / len(scales)
+
+    regular_prefix = next((p for p, s in prefix_to_style.items() if s == 'regular'), None)
+    regular_avg_scale = _avg_scale(regular_prefix) if regular_prefix else None
+    _DISPLAY_SCALE_RATIO = 1.4  # display/heading text is typically 1.4x+ body size
+
+    if regular_avg_scale and regular_avg_scale > 0:
+        for prefix, style in list(prefix_to_style.items()):
+            if style.startswith('mono') or style == 'math' or style.endswith('-display'):
+                continue
+            avg = _avg_scale(prefix)
+            if avg is not None and avg >= regular_avg_scale * _DISPLAY_SCALE_RATIO:
+                prefix_to_style[prefix] = style + '-display'
+
     # Update the font_variants dict with the detected styles
     for prefix, style in prefix_to_style.items():
         if prefix in font_variants:

@@ -60,6 +60,13 @@ class ConversionConfig:
     # falling back to Arial/Consolas for every document regardless of the
     # brand's actual display/mono fonts.
     default_mono_font: str = "Consolas"
+    # Real family name for prefixes flagged '-display' by
+    # typst_svg_parser._prescan_font_variants Step 5 (a non-mono prefix
+    # rendering well larger than the document's body text -- usually a
+    # headline/display face that's a genuinely different family than body
+    # copy, e.g. a brand's fonts.display vs fonts.body). None (default)
+    # falls back to default_latin_font, i.e. inert unless a caller sets it.
+    default_display_font: Optional[str] = None
     # Whether to include speaker notes
     include_speaker_notes: bool = True
     # Verbose output
@@ -116,26 +123,37 @@ def _font_variant_to_props(
     variant: str,
     latin_font: str = 'Arial',
     mono_font: str = 'Consolas',
+    display_font: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Convert font variant name to PowerPoint text properties.
 
     `latin_font` / `mono_font` are caller-supplied real family names (see
     ConversionConfig.default_latin_font / default_mono_font) -- the SVG
-    itself carries no font-family metadata to read these from.
+    itself carries no font-family metadata to read these from. `variant`
+    may carry a '-display' suffix (see typst_svg_parser._prescan_font_variants
+    Step 5) marking a non-mono prefix whose text renders well larger than
+    the document's body prefix -- almost always a headline/display face,
+    which is often a genuinely different family than body copy (not just a
+    different weight). `display_font` lets a caller supply that real name;
+    if not given, display text falls back to `latin_font` same as before
+    this existed (fully backward compatible).
     """
+    is_display = variant.endswith('-display')
+    base_variant = variant[: -len('-display')] if is_display else variant
+
     props = {
         'bold': False,
         'italic': False,
-        'font_family': latin_font,
+        'font_family': (display_font or latin_font) if is_display else latin_font,
     }
 
-    if variant in ('bold', 'bolditalic', 'monobold', 'monobolditalic'):
+    if base_variant in ('bold', 'bolditalic', 'monobold', 'monobolditalic'):
         props['bold'] = True
-    if variant in ('italic', 'bolditalic', 'monoitalic', 'monobolditalic'):
+    if base_variant in ('italic', 'bolditalic', 'monoitalic', 'monobolditalic'):
         props['italic'] = True
-    if variant in ('mono', 'monobold', 'monoitalic', 'monobolditalic'):
+    if base_variant in ('mono', 'monobold', 'monoitalic', 'monobolditalic'):
         props['font_family'] = mono_font
-    if variant == 'math':
+    if base_variant == 'math':
         props['font_family'] = 'Cambria Math'
 
     return props
@@ -2399,6 +2417,7 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                 seg.font_variant,
                 latin_font=self.config.default_latin_font,
                 mono_font=self.config.default_mono_font,
+                display_font=self.config.default_display_font,
             )
             run.font.bold = font_props['bold']
             run.font.italic = font_props['italic']
@@ -2560,6 +2579,7 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                     seg.font_variant,
                     latin_font=self.config.default_latin_font,
                     mono_font=self.config.default_mono_font,
+                    display_font=self.config.default_display_font,
                 )
                 run.font.bold = font_props['bold']
                 run.font.italic = font_props['italic']
