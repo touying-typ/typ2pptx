@@ -847,6 +847,25 @@ def _merge_paragraph_lines(
         if dominant_size_a != dominant_size_b:
             return False, None
 
+        # Headline/display-scale text is essentially always a deliberately
+        # broken line (an explicit line break in the source, or a design
+        # choice), never prose that overflowed a column and wrapped -- so
+        # the "does line_a fill its column" check below is unreliable for
+        # it. Worse, for a short standalone headline block (no surrounding
+        # paragraph to establish an independent column width) the
+        # "effective column width" is DERIVED from the headline's own
+        # lines, making the fill-ratio check circular: the widest of the
+        # headline's own lines will always measure as "filling 100% of the
+        # column" by construction. Confirmed on a real deck: a deliberate
+        # 2-line headline ("Small Teams," / "Big Systems") got merged into
+        # one reflowable textbox, and rejoining + rewrapping at PowerPoint's
+        # own font metrics produced a 3rd line that overflowed into the
+        # subtitle below. 24pt comfortably separates every body/label size
+        # actually used in these decks (~8-17pt) from headline sizes
+        # (~35pt+).
+        if dominant_size_a > 24:
+            return False, None
+
         x_a = _line_left_x(line_a)
         x_b = _line_left_x(line_b)
         if abs(x_a - x_b) > 5.0:
@@ -2591,6 +2610,21 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
         if bb_h < 1:
             max_font = max(s.font_size for s in all_segs)
             bb_h = max_font * len(lines) * 1.5
+
+        # Safety margin, same rationale as the single-line path in
+        # _render_text_groups (font-metric drift between Typst's own
+        # measurement and whatever font file PowerPoint actually renders
+        # with) -- but MORE generous here (25% vs 15%) because this box's
+        # width is sized to Typst's widest ORIGINAL line, then the merged
+        # lines get rejoined into one word_wrap=True string. Reflowing
+        # that string at PowerPoint's own metrics does not reliably
+        # reproduce the same line breaks Typst chose even before any font
+        # mismatch -- confirmed on a real deck (a 2-line headline, "Small
+        # Teams," / "Big Systems", each already Typst's own deliberate
+        # line) reflowed into 3 lines at the exact original widest-line
+        # width, with the 3rd line overflowing the box (sized for 2 lines)
+        # into the subtitle below it.
+        bb_w *= 1.25
 
         # Convert to EMU
         left = Emu(max(0, int(bb_x * self._emu_per_px)))
