@@ -87,6 +87,26 @@ def main():
             'list items. Enable it for prose-heavy decks.'
         ),
     )
+    parser.add_argument(
+        '--latin-font',
+        default='Arial',
+        help=(
+            'Real font family name to use for regular/bold/italic text '
+            '(default: Arial). The typst.ts SVG artifact carries no '
+            'font-family metadata at all, so the converter cannot recover '
+            'the document\'s real display/body font from the SVG itself -- '
+            'pass the actual family (e.g. the brand\'s fonts.display/'
+            'fonts.body value) here to avoid a silent Arial substitution.'
+        ),
+    )
+    parser.add_argument(
+        '--mono-font',
+        default='Consolas',
+        help=(
+            'Real font family name to use for text detected as monospace '
+            '(default: Consolas). Same rationale as --latin-font.'
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -109,6 +129,8 @@ def main():
         detect_paragraphs=args.detect_paragraphs,
         font_size_scale=args.font_size_scale,
         emu_per_px=args.emu_per_px,
+        default_latin_font=args.latin_font,
+        default_mono_font=args.mono_font,
     )
 
     try:

@@ -46,6 +46,20 @@ class ConversionConfig:
     default_latin_font: str = "Arial"
     default_ea_font: str = "Microsoft YaHei"
     default_cs_font: str = "Arial"
+    # Default font for the 'mono' style bucket (see _font_variant_to_props).
+    # typst.ts's rich SVG export carries no font-family metadata at all (no
+    # <text font-family> attrs, no data-font-* attrs -- verified empirically:
+    # zero matches for /font-family/ across a real artifact SVG), only glyph
+    # outlines identified by opaque per-export hash ids. The converter can
+    # only bucket text into coarse style categories (regular/bold/italic/
+    # bolditalic/mono/math) via glyph-shape and advance-width heuristics; it
+    # can never recover the *real* family name (e.g. "Cormorant Garamond")
+    # from the SVG itself. default_latin_font / default_mono_font let a
+    # caller who *does* know the real family (e.g. from the brand.json that
+    # drove the original Typst compile) supply it, instead of silently
+    # falling back to Arial/Consolas for every document regardless of the
+    # brand's actual display/mono fonts.
+    default_mono_font: str = "Consolas"
     # Whether to include speaker notes
     include_speaker_notes: bool = True
     # Verbose output
@@ -98,20 +112,29 @@ def _compute_text_position(text_seg: TextSegment, page_width: float, page_height
     return (x, y, width, height)
 
 
-def _font_variant_to_props(variant: str) -> Dict[str, Any]:
-    """Convert font variant name to PowerPoint text properties."""
+def _font_variant_to_props(
+    variant: str,
+    latin_font: str = 'Arial',
+    mono_font: str = 'Consolas',
+) -> Dict[str, Any]:
+    """Convert font variant name to PowerPoint text properties.
+
+    `latin_font` / `mono_font` are caller-supplied real family names (see
+    ConversionConfig.default_latin_font / default_mono_font) -- the SVG
+    itself carries no font-family metadata to read these from.
+    """
     props = {
         'bold': False,
         'italic': False,
-        'font_family': 'Arial',
+        'font_family': latin_font,
     }
 
-    if variant in ('bold', 'bolditalic'):
+    if variant in ('bold', 'bolditalic', 'monobold', 'monobolditalic'):
         props['bold'] = True
-    if variant in ('italic', 'bolditalic'):
+    if variant in ('italic', 'bolditalic', 'monoitalic', 'monobolditalic'):
         props['italic'] = True
-    if variant == 'mono':
-        props['font_family'] = 'Consolas'
+    if variant in ('mono', 'monobold', 'monoitalic', 'monobolditalic'):
+        props['font_family'] = mono_font
     if variant == 'math':
         props['font_family'] = 'Cambria Math'
 
@@ -2372,7 +2395,11 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
             run.text = text
 
             # Font properties
-            font_props = _font_variant_to_props(seg.font_variant)
+            font_props = _font_variant_to_props(
+                seg.font_variant,
+                latin_font=self.config.default_latin_font,
+                mono_font=self.config.default_mono_font,
+            )
             run.font.bold = font_props['bold']
             run.font.italic = font_props['italic']
             run.font.name = font_props['font_family']
@@ -2529,7 +2556,11 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                 run.text = text
 
                 # Font properties
-                font_props = _font_variant_to_props(seg.font_variant)
+                font_props = _font_variant_to_props(
+                    seg.font_variant,
+                    latin_font=self.config.default_latin_font,
+                    mono_font=self.config.default_mono_font,
+                )
                 run.font.bold = font_props['bold']
                 run.font.italic = font_props['italic']
                 run.font.name = font_props['font_family']
