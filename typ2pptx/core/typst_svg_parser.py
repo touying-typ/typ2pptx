@@ -45,7 +45,8 @@ class FontVariant:
     prefix: str  # 5-char prefix
     glyph_count: int  # Number of glyphs with this prefix
     uses_quadratic: bool  # True if glyphs use Q commands
-    style: str = "regular"  # regular, bold, italic, bolditalic, mono, math
+    style: str = "regular"  # regular, bold, italic, bolditalic, mono,
+    # monobold, monoitalic, monobolditalic, math
 
 
 @dataclass
@@ -66,7 +67,8 @@ class TextSegment:
     width: float
     height: float
     font_size: float  # Computed font size in SVG px
-    font_variant: str  # regular, bold, italic, bolditalic, mono, math
+    font_variant: str  # regular, bold, italic, bolditalic, mono,
+    # monobold, monoitalic, monobolditalic, math
     fill_color: str  # Hex color like "#000000"
     # The class name from the div element
     css_class: str = ""
@@ -267,17 +269,23 @@ def _analyze_glyphs(defs: Dict[str, ET.Element]) -> Tuple[Dict[str, GlyphInfo], 
     for prefix, stats in prefix_stats.items():
         quadratic_ratio = stats['quadratic_count'] / max(stats['count'], 1)
 
-        # If most glyphs use quadratic curves, it's likely mono or math
-        if quadratic_ratio > 0.5:
-            style = "mono"  # Will be refined later with context
-        else:
-            style = "regular"  # Will be refined later
-
+        # NOTE: curve command type (Q vs C) reflects the *font file format*
+        # (TrueType glyf outlines are always quadratic; PostScript/CFF and most
+        # OpenType-CFF outlines are cubic) -- not whether the font is
+        # monospaced. Nearly every real-world font, proportional or mono
+        # alike, ships as TrueType on macOS/Windows, so a "quadratic implies
+        # mono" rule false-positives on almost every deck (verified: a
+        # Helvetica Neue + Menlo document had ALL 5 font variants come back
+        # quadratic=True, so the old code labeled 100% of the deck's text
+        # 'mono'). Monospace detection now happens in _prescan_font_variants
+        # via glyph advance-width uniformity (see _collect_advance_deltas /
+        # _is_monospace_prefix), a metric signal instead of a format signal.
+        # `uses_quadratic` is retained as diagnostic data only.
         font_variants[prefix] = FontVariant(
             prefix=prefix,
             glyph_count=stats['count'],
             uses_quadratic=(quadratic_ratio > 0.5),
-            style=style,
+            style="regular",
         )
 
     return glyph_defs, font_variants
@@ -297,6 +305,158 @@ def _get_glyph_width(path_data: str) -> float:
     if not xs:
         return 0
     return max(xs) - min(xs)
+
+
+def _collect_advance_deltas(
+    root: ET.Element,
+    glyph_defs: Dict[str, GlyphInfo],
+) -> Dict[str, List[float]]:
+    """Collect normalized glyph advance-width deltas per font-variant prefix.
+
+    This is the real signal for monospace detection: within a run of glyphs
+    from the same font, consecutive `<use x="...">` offsets encode each
+    glyph's advance width directly (no path geometry parsing needed).
+    Monospace fonts hold that advance constant across every character by
+    construction; proportional fonts vary it a lot (compare 'i'/'l' vs
+    'm'/'W'). Each text group's deltas are normalized by that group's own
+    mean delta before pooling across groups, so runs at different font
+    sizes/scales contribute on the same scale.
+
+    Returns dict mapping prefix -> list of normalized deltas (pooled from
+    every text group that used that prefix exclusively).
+    """
+    deltas_by_prefix: Dict[str, List[float]] = {}
+
+    for text_group in root.iter(f'{{{SVG_NS}}}g'):
+        if 'typst-text' not in text_group.get('class', ''):
+            continue
+
+        uses = text_group.findall(f'{{{SVG_NS}}}use')
+        if len(uses) < 4:
+            continue  # need enough glyphs for a meaningful sample
+
+        prefix = None
+        xs: List[float] = []
+        consistent_prefix = True
+        for use in uses:
+            href = use.get(f'{{{XLINK_NS}}}href') or use.get('href', '')
+            if not href.startswith('#'):
+                consistent_prefix = False
+                break
+            gid = href[1:]
+            if gid not in glyph_defs:
+                consistent_prefix = False
+                break
+            use_prefix = glyph_defs[gid].prefix
+            if prefix is None:
+                prefix = use_prefix
+            elif use_prefix != prefix:
+                # Mixed-prefix run (e.g. an inline accent glyph) -- skip,
+                # rather than attribute deltas to the wrong font.
+                consistent_prefix = False
+                break
+            try:
+                xs.append(float(use.get('x', '0')))
+            except ValueError:
+                consistent_prefix = False
+                break
+
+        if not consistent_prefix or prefix is None or len(xs) < 4:
+            continue
+
+        group_deltas = [b - a for a, b in zip(xs, xs[1:]) if (b - a) > 0.01]
+        if len(group_deltas) < 3:
+            continue
+
+        mean_delta = sum(group_deltas) / len(group_deltas)
+        if mean_delta <= 0:
+            continue
+
+        normalized = [d / mean_delta for d in group_deltas]
+        deltas_by_prefix.setdefault(prefix, []).extend(normalized)
+
+    return deltas_by_prefix
+
+
+def _is_monospace_prefix(deltas: List[float]) -> bool:
+    """True if normalized advance-width deltas show the low variance
+    characteristic of a monospace font.
+
+    Proportional fonts show wide variance between narrow (i, l, t, .) and
+    wide (m, w, M, W) glyph advances; monospace fonts hold every advance
+    width equal (or near-equal, modulo hinting rounding) by construction.
+    Requires a minimum sample size so a short/unlucky run of same-width
+    characters (e.g. all digits, which are tabular-width in most fonts)
+    doesn't get misread as monospace.
+    """
+    if len(deltas) < 8:
+        return False
+    mean = sum(deltas) / len(deltas)
+    if mean <= 0:
+        return False
+    variance = sum((d - mean) ** 2 for d in deltas) / len(deltas)
+    stdev = variance ** 0.5
+    coefficient_of_variation = stdev / mean
+    return coefficient_of_variation < 0.12
+
+
+# Minimum slant deviation (in x-per-y slope units) from a document's own
+# upright baseline before a font variant is called "italic". Calibrated
+# against a real sample: a genuine Helvetica Neue Medium Italic face
+# measured ~+0.14 here, while every upright weight in the same document
+# (Regular, Bold, Menlo Regular/Bold) measured -0.02 to -0.06. 0.08 sits
+# comfortably between those clusters with margin on both sides.
+_SLANT_ITALIC_THRESHOLD = 0.08
+
+
+def _get_glyph_slant(path_data: str) -> Optional[float]:
+    """Estimate a glyph's horizontal slant (shear) from its path coordinates.
+
+    Fits x = m*y + b by least squares over every (x, y) point extracted from
+    the path's `d` data (on-curve endpoints and Q/C control points alike --
+    fine for a rough slant estimate, since an italic shear moves the whole
+    outline uniformly, control points included). Returns the slope m, or
+    None if there isn't enough coordinate data to estimate one.
+
+    Upright glyphs land near a font-family-specific baseline close to 0
+    (small negative bias in practice, likely from asymmetric curved
+    letterforms like S/Q); genuinely italic/oblique glyphs shear the
+    outline by a consistent, much larger slope. See _SLANT_ITALIC_THRESHOLD
+    for the calibration this is compared against.
+    """
+    nums = re.findall(r'([-\d.]+)', path_data)
+    if len(nums) < 8:
+        return None
+    floats = [float(n) for n in nums]
+    xs = floats[0::2]
+    ys = floats[1::2]
+    n = min(len(xs), len(ys))
+    if n < 4:
+        return None
+    xs, ys = xs[:n], ys[:n]
+    mean_x = sum(xs) / n
+    mean_y = sum(ys) / n
+    covariance = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    variance_y = sum((y - mean_y) ** 2 for y in ys)
+    if variance_y == 0:
+        return 0.0
+    return covariance / variance_y
+
+
+def _prefix_avg_slant(
+    prefix: str,
+    glyph_defs: Dict[str, GlyphInfo],
+    sample_size: int = 30,
+) -> Optional[float]:
+    """Average glyph slant for a prefix, pooled over a sample of its glyphs."""
+    samples = [g for g in glyph_defs.values() if g.prefix == prefix][:sample_size]
+    slants = [
+        s for s in (_get_glyph_slant(g.path_data) for g in samples)
+        if s is not None
+    ]
+    if not slants:
+        return None
+    return sum(slants) / len(slants)
 
 
 def _prescan_font_variants(
@@ -362,9 +522,13 @@ def _prescan_font_variants(
     # Now assign styles
     prefix_to_style: Dict[str, str] = {}
 
-    # Step 1: Mark quadratic → mono
+    # Step 1: Detect monospace prefixes from glyph advance-width uniformity
+    # (see _collect_advance_deltas / _is_monospace_prefix docstrings for why
+    # this replaced a "quadratic curve => mono" rule that misfired on almost
+    # every TrueType-backed document).
+    advance_deltas = _collect_advance_deltas(root, glyph_defs)
     for prefix, variant in font_variants.items():
-        if variant.uses_quadratic:
+        if _is_monospace_prefix(advance_deltas.get(prefix, [])):
             prefix_to_style[prefix] = 'mono'
 
     # Step 1.5: Detect math font by checking if text content contains
@@ -551,49 +715,123 @@ def _prescan_font_variants(
                             ratio = this_width / regular_width
                             prefix_width_ratios[prefix].append(ratio)
 
-            # Classify based on width ratio relative to regular:
-            # Bold: width > regular (ratio > 1.0)
-            # Italic: width < regular (ratio < 1.0)
-            # BoldItalic: width between regular and bold, or > regular
+            # Weight axis done (prefix_width_ratios above). Width ratio
+            # alone cannot separate bold from italic though: a "Medium
+            # Italic" face can have an advance width close to Regular's, so
+            # ranking purely by width (the old approach) would misclassify
+            # it. Verified on a real document: Helvetica Neue Bold and
+            # Helvetica Neue Medium Italic got their labels SWAPPED by pure
+            # width-ratio ranking, because MediumItalic happened to measure
+            # wider than Bold for the shared characters in that deck's text.
+            #
+            # Slant is a direct geometric measurement of what italic
+            # actually *is* (a uniform horizontal shear of the glyph
+            # outline), so it's used as an independent second axis instead
+            # of trying to fold both weight and slant into one ranking.
             prefix_avg_ratios = {}
             for prefix, ratios in prefix_width_ratios.items():
-                if ratios:
-                    prefix_avg_ratios[prefix] = sum(ratios) / len(ratios)
-                else:
-                    prefix_avg_ratios[prefix] = 1.0
+                prefix_avg_ratios[prefix] = (sum(ratios) / len(ratios)) if ratios else 1.0
 
-            if len(unassigned) == 1:
-                p = unassigned[0]
-                ratio = prefix_avg_ratios.get(p, 1.0)
-                if ratio > 1.05:
-                    prefix_to_style[p] = 'bold'
-                elif ratio < 0.95:
-                    prefix_to_style[p] = 'italic'
+            slants = {
+                p: _prefix_avg_slant(p, glyph_defs) for p in font_variants
+            }
+            known_slants = sorted(v for v in slants.values() if v is not None)
+            if known_slants:
+                mid = len(known_slants) // 2
+                if len(known_slants) % 2:
+                    baseline_slant = known_slants[mid]
                 else:
-                    prefix_to_style[p] = 'bold'  # Default to bold for headings
+                    baseline_slant = (known_slants[mid - 1] + known_slants[mid]) / 2
+            else:
+                baseline_slant = 0.0
 
-            elif len(unassigned) == 2:
-                p1, p2 = unassigned
-                r1 = prefix_avg_ratios.get(p1, 1.0)
-                r2 = prefix_avg_ratios.get(p2, 1.0)
-                if r1 > r2:
-                    prefix_to_style[p1] = 'bold'
-                    prefix_to_style[p2] = 'italic'
+            def _is_italic(prefix: str) -> bool:
+                s = slants.get(prefix)
+                if s is None:
+                    return False
+                return abs(s - baseline_slant) > _SLANT_ITALIC_THRESHOLD
+
+            def _is_bold(prefix: str) -> bool:
+                return prefix_avg_ratios.get(prefix, 1.0) > 1.05
+
+            for prefix in unassigned:
+                italic = _is_italic(prefix)
+                bold = _is_bold(prefix)
+                if italic and bold:
+                    prefix_to_style[prefix] = 'bolditalic'
+                elif italic:
+                    prefix_to_style[prefix] = 'italic'
+                elif bold:
+                    prefix_to_style[prefix] = 'bold'
                 else:
-                    prefix_to_style[p1] = 'italic'
-                    prefix_to_style[p2] = 'bold'
-
-            elif len(unassigned) >= 3:
-                # Sort by width ratio (descending)
-                sorted_prefixes = sorted(unassigned, key=lambda p: prefix_avg_ratios.get(p, 1.0), reverse=True)
-                prefix_to_style[sorted_prefixes[0]] = 'bold'
-                prefix_to_style[sorted_prefixes[-1]] = 'italic'
-                for p in sorted_prefixes[1:-1]:
-                    prefix_to_style[p] = 'bolditalic'
+                    # Neither axis fired clearly (e.g. a weight variant too
+                    # close to regular to call, or measurement noise) --
+                    # default to bold: a real, distinct non-regular variant
+                    # exists here (regular already claimed its own prefix),
+                    # and it's more often a heading/emphasis weight than a
+                    # hidden near-duplicate of regular.
+                    prefix_to_style[prefix] = 'bold'
         else:
             # No regular prefix found, assign by count
             for p in unassigned:
                 prefix_to_style[p] = 'regular'
+
+    # Step 4: Sub-classify the 'mono' bucket into mono/monobold/monoitalic/
+    # monobolditalic, the same two-axis (width-ratio + slant) way Step 3
+    # classified the primary family. Without this, a document using two
+    # distinct monospace faces (e.g. Menlo Regular + Menlo Bold, both
+    # flagged 'mono' in Step 1 purely on advance-width uniformity) collapses
+    # them into a single PPTX style and silently drops bold/italic on mono
+    # text (index badges, kickers, labels set in a bold mono weight).
+    mono_prefixes = [p for p, s in prefix_to_style.items() if s == 'mono']
+    if len(mono_prefixes) > 1:
+        mono_regular = max(
+            mono_prefixes,
+            key=lambda p: prefix_usage_count.get(p, font_variants[p].glyph_count),
+        )
+        mono_others = [p for p in mono_prefixes if p != mono_regular]
+
+        mono_width_ratios: Dict[str, List[float]] = {p: [] for p in mono_others}
+        for char, mappings in char_to_glyph_by_prefix.items():
+            if char == ' ' or mono_regular not in mappings:
+                continue
+            regular_glyph = mappings[mono_regular]
+            regular_width = _get_glyph_width(glyph_defs[regular_glyph].path_data)
+            if regular_width <= 0:
+                continue
+            for p in mono_others:
+                if p in mappings:
+                    w = _get_glyph_width(glyph_defs[mappings[p]].path_data)
+                    if w > 0:
+                        mono_width_ratios[p].append(w / regular_width)
+
+        mono_slants = {p: _prefix_avg_slant(p, glyph_defs) for p in mono_prefixes}
+        mono_known_slants = sorted(v for v in mono_slants.values() if v is not None)
+        if mono_known_slants:
+            mid = len(mono_known_slants) // 2
+            if len(mono_known_slants) % 2:
+                mono_baseline_slant = mono_known_slants[mid]
+            else:
+                mono_baseline_slant = (mono_known_slants[mid - 1] + mono_known_slants[mid]) / 2
+        else:
+            mono_baseline_slant = 0.0
+
+        for p in mono_others:
+            ratios = mono_width_ratios.get(p, [])
+            avg_ratio = (sum(ratios) / len(ratios)) if ratios else 1.0
+            s = mono_slants.get(p)
+            italic = s is not None and abs(s - mono_baseline_slant) > _SLANT_ITALIC_THRESHOLD
+            bold = avg_ratio > 1.05
+            if italic and bold:
+                prefix_to_style[p] = 'monobolditalic'
+            elif italic:
+                prefix_to_style[p] = 'monoitalic'
+            else:
+                # Default to monobold: this prefix is a real, distinct
+                # monospace variant (mono_regular already claimed the most-
+                # used one), and it's more often a bold/emphasis weight than
+                # a hidden near-duplicate of the regular mono face.
+                prefix_to_style[p] = 'monobold'
 
     # Update the font_variants dict with the detected styles
     for prefix, style in prefix_to_style.items():
