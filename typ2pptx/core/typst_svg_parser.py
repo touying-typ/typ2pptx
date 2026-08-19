@@ -324,6 +324,20 @@ def _collect_advance_deltas(
 
     Returns dict mapping prefix -> list of normalized deltas (pooled from
     every text group that used that prefix exclusively).
+
+    IMPORTANT: `<use>` elements for zero-ink glyphs (spaces) commonly have
+    no matching `<path>` in glyph_defs at all -- Typst's SVG export omits
+    the empty outline but still emits the `<use x="...">` for text-flow
+    positioning. Verified empirically: a prose run's `<use href="#...">`
+    targets included ids with NO defining element anywhere in the document
+    (a dangling reference), recurring at roughly word-length intervals --
+    i.e. exactly where spaces fall. An earlier version of this function
+    treated any such lookup miss as a fatal error and discarded the ENTIRE
+    text group's deltas, which silently zeroed out mono detection on any
+    prose-like text (nearly every real sentence has spaces). Missing-glyph
+    `<use>` instances are now treated as neutral position markers: their x
+    offset still contributes to neighboring deltas, but they neither set
+    nor break the group's prefix consistency check.
     """
     deltas_by_prefix: Dict[str, List[float]] = {}
 
@@ -344,10 +358,22 @@ def _collect_advance_deltas(
                 consistent_prefix = False
                 break
             gid = href[1:]
-            if gid not in glyph_defs:
+            try:
+                x_val = float(use.get('x', '0'))
+            except ValueError:
                 consistent_prefix = False
                 break
-            use_prefix = glyph_defs[gid].prefix
+
+            glyph_info = glyph_defs.get(gid)
+            if glyph_info is None:
+                # No defined outline for this instance (typically a space).
+                # Its position is still meaningful for delta calculations;
+                # it just can't confirm or deny which font variant it's
+                # part of, so don't touch `prefix`.
+                xs.append(x_val)
+                continue
+
+            use_prefix = glyph_info.prefix
             if prefix is None:
                 prefix = use_prefix
             elif use_prefix != prefix:
@@ -355,11 +381,7 @@ def _collect_advance_deltas(
                 # rather than attribute deltas to the wrong font.
                 consistent_prefix = False
                 break
-            try:
-                xs.append(float(use.get('x', '0')))
-            except ValueError:
-                consistent_prefix = False
-                break
+            xs.append(x_val)
 
         if not consistent_prefix or prefix is None or len(xs) < 4:
             continue
