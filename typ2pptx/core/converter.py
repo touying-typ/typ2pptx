@@ -1339,7 +1339,7 @@ class TypstSVGConverter:
         elif tag == 'line':
             self._add_line(elem, slide, total_dx, total_dy, total_sx, total_sy)
         elif tag == 'image':
-            self._add_image(elem, slide, total_dx, total_dy, total_sx, total_sy, svg_data)
+            self._add_image(elem, slide, total_dx, total_dy, total_sx, total_sy, svg_data, clip_rect=shape.clip_rect)
         elif tag == 'path':
             self._add_path(elem, slide, total_dx, total_dy, total_sx, total_sy, page_data)
         elif tag in ('polygon', 'polyline'):
@@ -1654,12 +1654,26 @@ class TypstSVGConverter:
         img_stream = BytesIO(png_data)
         slide.shapes.add_picture(img_stream, left_emu, top_emu, width_emu, height_emu)
 
-    def _add_image(self, elem, slide, dx, dy, sx, sy, svg_data):
+    def _add_image(self, elem, slide, dx, dy, sx, sy, svg_data, clip_rect=None):
         """Add an image to the slide.
 
         Handles PNG, JPEG, GIF images directly.
         SVG and PDF images are rasterized to PNG via the typst Python package
         with transparent background before embedding.
+
+        clip_rect, when given, is an inherited box(clip: true) region (x0,
+        y0, x1, y1 in the same absolute px space as x/y/w below) from an
+        ancestor group -- OOXML has no native group/shape clip primitive, so
+        this is approximated as a picture crop: the displayed frame shrinks
+        to the visible intersection and Picture.crop_* tells PowerPoint to
+        show only that fraction of the source image, which is correct
+        whenever the image fills its box 1:1 (the common case; combining
+        this with a *different* preserveAspectRatio-driven crop is not
+        attempted). Without this, a Typst image deliberately cropped by a
+        wrapping box() renders at its full natural size and visually
+        overflows into whatever sits past the crop -- confirmed on a real
+        deck (personal-talk/personal/19-brutalist-blocknumeral's cover
+        painting, which bled across the entire right half of the slide).
         """
         from pptx.util import Emu
         import base64
@@ -1675,6 +1689,18 @@ class TypstSVGConverter:
 
         if w <= 0 or h <= 0:
             return
+
+        crop_left = crop_top = crop_right = crop_bottom = 0.0
+        if clip_rect is not None:
+            cx0, cy0, cx1, cy1 = clip_rect
+            vx0, vy0 = max(x, cx0), max(y, cy0)
+            vx1, vy1 = min(x + w, cx1), min(y + h, cy1)
+            if vx1 > vx0 and vy1 > vy0 and (vx1 - vx0 < w - 0.5 or vy1 - vy0 < h - 0.5):
+                crop_left = (vx0 - x) / w
+                crop_top = (vy0 - y) / h
+                crop_right = (x + w - vx1) / w
+                crop_bottom = (y + h - vy1) / h
+                x, y, w, h = vx0, vy0, vx1 - vx0, vy1 - vy0
 
         left_emu = Emu(int(x * self._emu_per_px))
         top_emu = Emu(int(y * self._emu_per_px))
@@ -1701,9 +1727,12 @@ class TypstSVGConverter:
                     # PNG, JPEG, GIF, etc. - pass directly
                     img_stream = BytesIO(data)
 
-                slide.shapes.add_picture(
+                pic = slide.shapes.add_picture(
                     img_stream, left_emu, top_emu, width_emu, height_emu
                 )
+                if crop_left or crop_top or crop_right or crop_bottom:
+                    pic.crop_left, pic.crop_top = crop_left, crop_top
+                    pic.crop_right, pic.crop_bottom = crop_right, crop_bottom
         else:
             # External file
             img_path = Path(href)
@@ -1724,13 +1753,16 @@ class TypstSVGConverter:
                     if not png_data:
                         return
                     img_stream = BytesIO(png_data)
-                    slide.shapes.add_picture(
+                    pic = slide.shapes.add_picture(
                         img_stream, left_emu, top_emu, width_emu, height_emu
                     )
                 else:
-                    slide.shapes.add_picture(
+                    pic = slide.shapes.add_picture(
                         str(img_path), left_emu, top_emu, width_emu, height_emu
                     )
+                if crop_left or crop_top or crop_right or crop_bottom:
+                    pic.crop_left, pic.crop_top = crop_left, crop_top
+                    pic.crop_right, pic.crop_bottom = crop_right, crop_bottom
 
     def _add_path(self, elem, slide, dx, dy, sx, sy, page_data):
         """Add a path shape to the slide as native DrawingML custom geometry.

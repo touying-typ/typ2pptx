@@ -1598,6 +1598,29 @@ def convert_image(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     clip_is_noop = clip_geom == '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
     meet_fit = None if not clip_is_noop else _resolve_image_meet_fit(elem, img_data, w, h)
 
+    # Apply an INHERITED box(clip: true) region from an ancestor <g
+    # clip-path="..."> (ctx.clip_rect, installed by convert_g -- see its
+    # docstring). This is distinct from clip-path attached directly to this
+    # <image> (clip_geom above): typst commonly clips an image via a
+    # wrapping box(), not the image tag itself, so without this the image
+    # renders at its full unclipped extent and visually overflows into
+    # whatever sits past the intended crop -- confirmed on a real deck
+    # (personal-talk/personal/19-brutalist-blocknumeral's cover painting).
+    # Only applied when nothing else is already adjusting the frame (a
+    # simultaneous preserveAspectRatio crop/letterbox + inherited clip is a
+    # rare combination not worth the complexity here).
+    if ctx.clip_rect is not None and not src_rect_xml and meet_fit is None:
+        cx0, cy0, cx1, cy1 = ctx.clip_rect
+        vx0, vy0 = max(x, cx0), max(y, cy0)
+        vx1, vy1 = min(x + w, cx1), min(y + h, cy1)
+        if vx1 > vx0 and vy1 > vy0 and (vx1 - vx0 < w - 0.5 or vy1 - vy0 < h - 0.5):
+            l = max(0, min(100000, round((vx0 - x) / w * 100000)))
+            t = max(0, min(100000, round((vy0 - y) / h * 100000)))
+            r = max(0, min(100000, round((x + w - vx1) / w * 100000)))
+            b = max(0, min(100000, round((y + h - vy1) / h * 100000)))
+            src_rect_xml = f'<a:srcRect l="{l}" t="{t}" r="{r}" b="{b}"/>'
+            x, y, w, h = vx0, vy0, vx1 - vx0, vy1 - vy0
+
     shape_id = ctx.next_id()
     if meet_fit is not None:
         dx, dy, fit_w, fit_h = meet_fit

@@ -46,6 +46,15 @@ class ConvertContext:
     # Top-level <g id="..."> groups, recorded as (shape_id, svg_id) in z-order.
     # Used by the PPTX builder to emit per-element entrance timing.
     anim_targets: list = field(default_factory=list)
+    # Inherited box(clip: true) region (x0, y0, x1, y1), already in this
+    # context's output coordinate space (i.e. comparable directly against
+    # ctx_x()/ctx_y()/ctx_w()/ctx_h()-transformed values). None means
+    # unconstrained. OOXML has no native group/text clip primitive (unlike
+    # SVG's clip-path), so this is threaded down for individual converters
+    # (currently images) to apply as a rectangular intersection/crop where
+    # they can -- see convert_g's clip-path resolution and convert_image's
+    # use of it.
+    clip_rect: 'tuple[float, float, float, float] | None' = None
 
     def next_id(self) -> int:
         """Allocate the next shape ID."""
@@ -68,6 +77,7 @@ class ConvertContext:
         transform_matrix: AffineMatrix | None = None,
         filter_id: str | None = None,
         style_overrides: dict[str, str] | None = None,
+        clip_rect: 'tuple[float, float, float, float] | None' = None,
     ) -> ConvertContext:
         """Create a child context with accumulated translate / scale / styles.
 
@@ -80,6 +90,11 @@ class ConvertContext:
                 converters that can faithfully map it to DrawingML.
             filter_id: Override filter ID.
             style_overrides: Style attribute overrides from child element.
+            clip_rect: A NEW clip region (already intersected with any
+                inherited one by the caller) to install for this subtree,
+                e.g. from a clip-path resolved by convert_g. Pass None to
+                just inherit self.clip_rect unchanged (the common case for
+                every child() call that isn't itself introducing a clip).
         """
         local_matrix = transform_matrix or IDENTITY_MATRIX
         # Fold scalar ancestors into the matrix when a descendant first needs
@@ -144,6 +159,7 @@ class ConvertContext:
             depth=self.depth + 1,
             # anim_targets is intentionally a fresh list on the child;
             # only the root-level context's list is read by the builder.
+            clip_rect=clip_rect if clip_rect is not None else self.clip_rect,
         )
 
     def sync_from_child(self, child_ctx: ConvertContext) -> None:

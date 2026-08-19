@@ -11,6 +11,7 @@ from .drawingml_context import ConvertContext, ShapeResult
 from .drawingml_utils import (
     SVG_NS, EMU_PER_PX,
     _extract_inheritable_styles, parse_transform_matrix, resolve_url_id,
+    ctx_x, ctx_y,
 )
 from .drawingml_styles import build_effect_xml
 from .drawingml_elements import (
@@ -130,6 +131,54 @@ def _extract_rotate_pivot(transform_str: str) -> tuple[float, float] | None:
 # Group handling
 # ---------------------------------------------------------------------------
 
+def _resolve_clip_rect_local(
+    elem: ET.Element, ctx: ConvertContext,
+) -> tuple[float, float, float, float] | None:
+    """Resolve elem's clip-path="url(#id)" to a local-space axis-aligned bbox.
+
+    Only handles the plain-rect case (a <rect>, or a <path> whose 'd' is an
+    axis-aligned quadrilateral) -- the only shape typst's box(clip: true)
+    machinery emits. Returns None for anything else (circle/rounded-rect
+    clips on GROUPS are rare and unhandled here; convert_image's own
+    _resolve_clip_geometry already covers those when clip-path sits directly
+    on an <image>).
+    """
+    clip_ref = elem.get('clip-path', '')
+    clip_id = resolve_url_id(clip_ref)
+    if not clip_id or clip_id not in ctx.defs:
+        return None
+    clip_elem = ctx.defs[clip_id]
+    if clip_elem.tag.replace(f'{{{SVG_NS}}}', '') != 'clipPath':
+        return None
+    for child in clip_elem:
+        child_tag = child.tag.replace(f'{{{SVG_NS}}}', '')
+        if child_tag == 'rect':
+            x = float(child.get('x', '0'))
+            y = float(child.get('y', '0'))
+            w = float(child.get('width', '0'))
+            h = float(child.get('height', '0'))
+            return (x, y, x + w, y + h)
+        if child_tag == 'path':
+            coords = re.findall(r'(-?[\d.]+)[,\s]+(-?[\d.]+)', child.get('d', ''))
+            if len(coords) < 2:
+                continue
+            xs = [float(cx) for cx, _ in coords]
+            ys = [float(cy) for _, cy in coords]
+            return (min(xs), min(ys), max(xs), max(ys))
+    return None
+
+
+def _intersect_clip_rects(
+    a: tuple[float, float, float, float] | None,
+    b: tuple[float, float, float, float] | None,
+) -> tuple[float, float, float, float] | None:
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return (max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3]))
+
+
 def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     """Convert SVG <g> to DrawingML group shape <p:grpSp>.
 
@@ -178,6 +227,25 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
         )
     else:
         child_ctx = ctx.child(dx, dy, sx, sy, filter_id=filter_id, style_overrides=style_overrides)
+
+    # Install an inherited clip region if this group carries a resolvable
+    # rect clip-path (see module docstring context: OOXML has no native
+    # group-clip primitive, so this is threaded down for individual
+    # converters -- currently images -- to apply themselves).
+    clip_path_attr = elem.get('clip-path', '')
+    if clip_path_attr and clip_path_attr != 'none':
+        local_clip = _resolve_clip_rect_local(elem, ctx)
+        if local_clip is not None:
+            abs_clip = (
+                ctx_x(local_clip[0], child_ctx), ctx_y(local_clip[1], child_ctx),
+                ctx_x(local_clip[2], child_ctx), ctx_y(local_clip[3], child_ctx),
+            )
+            # ctx_y can flip sign under a negative scale_y; normalize back
+            # to (min, min, max, max) before intersecting.
+            x0, y0, x1, y1 = abs_clip
+            abs_clip = (min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
+            new_clip = _intersect_clip_rects(ctx.clip_rect, abs_clip)
+            child_ctx = child_ctx.child(clip_rect=new_clip)
 
     child_results: list[ShapeResult] = []
     for child in elem:
@@ -328,7 +396,20 @@ _SUPPORTED_VISUAL_CHILD_TAGS = frozenset(('tspan',))
 
 
 def collect_defs(root: ET.Element) -> dict[str, ET.Element]:
-    """Collect all <defs> children into an {id: element} dictionary."""
+    """Collect all <defs> children into an {id: element} dictionary.
+
+    Also picks up reusable elements (clipPath, gradients, patterns, masks,
+    filters, symbols, and raw paths used as glyph outlines) that carry an id
+    but aren't inside a <defs> block at all -- typst.ts commonly emits a
+    clipPath as a direct sibling of the <g clip-path="..."> that references
+    it, right inline in the visual tree, not hoisted into <defs>. Missing
+    this meant clip-path resolution (convert_g's inherited-clip propagation,
+    _resolve_clip_geometry for images) silently failed to find the clipPath
+    for any such inline case -- confirmed on a real deck's clipped image
+    panel, which rendered at full unclipped size as a result. Mirrors
+    typst_svg_parser._collect_defs, which already does this correctly for
+    the text-extraction side.
+    """
     defs: dict[str, ET.Element] = {}
     for defs_elem in root.iter(f'{{{SVG_NS}}}defs'):
         for child in defs_elem:
@@ -341,6 +422,16 @@ def collect_defs(root: ET.Element) -> dict[str, ET.Element]:
             elem_id = child.get('id')
             if elem_id:
                 defs[elem_id] = child
+    # Fallback: reusable elements with an id anywhere in the document,
+    # not just inside <defs> (see docstring above).
+    _REUSABLE_TAGS = ('path', 'symbol', 'clipPath', 'linearGradient', 'radialGradient', 'pattern', 'mask', 'filter')
+    for child in root.iter():
+        elem_id = child.get('id')
+        if not elem_id or elem_id in defs:
+            continue
+        tag = child.tag.replace(f'{{{SVG_NS}}}', '')
+        if tag in _REUSABLE_TAGS:
+            defs[elem_id] = child
     return defs
 
 

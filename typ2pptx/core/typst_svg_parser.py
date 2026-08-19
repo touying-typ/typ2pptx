@@ -89,6 +89,14 @@ class ShapeElement:
     height: float = 0.0
     transform_matrix: List[float] = field(default_factory=lambda: [1, 0, 0, 1, 0, 0])
     is_glyph_path: bool = False  # True if this is a glyph outline (should be skipped)
+    # Inherited box(clip: true) region (x0, y0, x1, y1) in absolute SVG page
+    # px (same space as TextSegment.x/y after transforms) from an ancestor
+    # <g clip-path="...">. None means unconstrained. See TextSegment's
+    # sibling clip handling in _process_text_group for the same concept
+    # applied to text -- OOXML has no native shape/group clip primitive, so
+    # this is applied downstream (currently: converter.py's _add_image via
+    # picture crop) by whichever consumer can approximate it.
+    clip_rect: Optional[Tuple[float, float, float, float]] = None
 
 
 @dataclass
@@ -1008,6 +1016,111 @@ def _compute_accumulated_transform(transforms: List[Tuple[float, float, float, f
     return (total_dx, total_dy, total_sx, total_sy)
 
 
+def _rect_bbox_from_clip_path_d(d: str) -> Optional[Tuple[float, float, float, float]]:
+    """Extract an axis-aligned bbox from a clipPath's child <path d="...">.
+
+    typst.ts emits box(clip: true) regions as a clipPath containing a single
+    rectangular path (M/L/Z commands only, four corners) -- this does not
+    attempt general polygon parsing, only the axis-aligned-rect case that
+    covers every clip typst's box()/rect() machinery actually produces.
+    """
+    coords = re.findall(r'(-?[\d.]+)[,\s]+(-?[\d.]+)', d)
+    if len(coords) < 2:
+        return None
+    xs = [float(x) for x, _ in coords]
+    ys = [float(y) for _, y in coords]
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _resolve_clip_rect_local(
+    clip_path_attr: str, all_defs: Dict[str, ET.Element],
+) -> Optional[Tuple[float, float, float, float]]:
+    """Resolve a clip-path="url(#id)" attribute to a local-space bbox.
+
+    Returns None for anything that isn't a plain axis-aligned rect (the only
+    shape typst's clip:true machinery emits) -- callers must treat None as
+    "no clip constraint available", not "empty clip".
+    """
+    m = re.match(r'url\(#([^)]+)\)', clip_path_attr.strip())
+    if not m:
+        return None
+    clip_def = all_defs.get(m.group(1))
+    if clip_def is None:
+        return None
+    tag = clip_def.tag.split('}')[-1] if '}' in clip_def.tag else clip_def.tag
+    if tag != 'clipPath':
+        return None
+    for child in clip_def:
+        child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+        if child_tag == 'rect':
+            x = float(child.get('x', '0'))
+            y = float(child.get('y', '0'))
+            w = float(child.get('width', '0'))
+            h = float(child.get('height', '0'))
+            return (x, y, x + w, y + h)
+        if child_tag == 'path':
+            d = child.get('d', '')
+            bbox = _rect_bbox_from_clip_path_d(d)
+            if bbox is not None:
+                return bbox
+    return None
+
+
+def _transform_rect(
+    rect: Tuple[float, float, float, float],
+    transforms: List[Tuple[float, float, float, float, float]],
+) -> Tuple[float, float, float, float]:
+    """Apply the same per-point (x*sx+tx, y*sy+ty) transform chain used
+    elsewhere in this module to all 4 corners of a rect, returning the new
+    axis-aligned bbox. Correct for the translate+scale-only transforms
+    typst.ts emits (documented assumption throughout this module already)."""
+    x0, y0, x1, y1 = rect
+    corners = [(x0, y0), (x1, y0), (x0, y1), (x1, y1)]
+    xs: List[float] = []
+    ys: List[float] = []
+    for cx, cy in corners:
+        tx, ty = cx, cy
+        for ptx, pty, psx, psy, _prot in transforms:
+            tx = tx * psx + ptx
+            ty = ty * psy + pty
+        xs.append(tx)
+        ys.append(ty)
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _intersect_rects(
+    a: Optional[Tuple[float, float, float, float]],
+    b: Optional[Tuple[float, float, float, float]],
+) -> Optional[Tuple[float, float, float, float]]:
+    """Intersect two optional bboxes; None means "unconstrained"."""
+    if a is None:
+        return b
+    if b is None:
+        return a
+    x0 = max(a[0], b[0])
+    y0 = max(a[1], b[1])
+    x1 = min(a[2], b[2])
+    y1 = min(a[3], b[3])
+    return (x0, y0, x1, y1)
+
+
+def _overlap_fraction(
+    seg_bbox: Tuple[float, float, float, float],
+    clip_rect: Tuple[float, float, float, float],
+) -> float:
+    """Fraction of seg_bbox's area that falls inside clip_rect (0..1)."""
+    sx0, sy0, sx1, sy1 = seg_bbox
+    seg_area = max(0.0, sx1 - sx0) * max(0.0, sy1 - sy0)
+    if seg_area <= 0:
+        return 1.0
+    ix0 = max(sx0, clip_rect[0])
+    iy0 = max(sy0, clip_rect[1])
+    ix1 = min(sx1, clip_rect[2])
+    iy1 = min(sy1, clip_rect[3])
+    inter_area = max(0.0, ix1 - ix0) * max(0.0, iy1 - iy0)
+    return inter_area / seg_area
+
+
 def _process_text_group(
     text_group: ET.Element,
     page_data: PageData,
@@ -1015,6 +1128,7 @@ def _process_text_group(
     font_variants: Dict[str, FontVariant],
     parent_transforms: List[Tuple[float, float, float, float, float]],
     page_y_offset: float,
+    clip_rect: Optional[Tuple[float, float, float, float]] = None,
 ):
     """Process a typst-text group to extract text segments.
 
@@ -1154,6 +1268,22 @@ def _process_text_group(
                         segment.glyph_uses = glyph_uses
                         segment.glyph_scale = glyph_scale
 
+                        # Respect an inherited box(clip: true) region: OOXML
+                        # has no native text/group clip primitive (unlike
+                        # SVG's clip-path), so a segment that mostly falls
+                        # outside its clip region would otherwise render at
+                        # full, unclipped size in PowerPoint and visually
+                        # collide with whatever content sits past the clip
+                        # boundary. Dropping a majority-clipped segment is a
+                        # deliberate, honest trade-off -- a decorative
+                        # element disappearing is far better than illegible
+                        # overlapping text. Only drop when MOST of the
+                        # segment is outside (>50% clipped away); ordinary
+                        # text that merely grazes a clip edge is unaffected.
+                        seg_bbox = (segment.x, segment.y, segment.x + segment.width, segment.y + segment.height)
+                        if clip_rect is not None and _overlap_fraction(seg_bbox, clip_rect) < 0.5:
+                            continue
+
                         page_data.text_segments.append(segment)
 
 
@@ -1166,6 +1296,7 @@ def _process_element_recursive(
     parent_transforms: List[Tuple[float, float, float, float, float]],
     page_y_offset: float,
     glyph_ids: Set[str],
+    clip_rect: Optional[Tuple[float, float, float, float]] = None,
 ):
     """Recursively process SVG elements within a page.
 
@@ -1185,7 +1316,7 @@ def _process_element_recursive(
     if 'typst-text' in css_class:
         _process_text_group(
             elem, page_data, glyph_defs, font_variants,
-            parent_transforms, page_y_offset,
+            parent_transforms, page_y_offset, clip_rect,
         )
         return
 
@@ -1219,10 +1350,19 @@ def _process_element_recursive(
         group_transform = parse_transform(elem.get('transform'))
         new_transforms = parent_transforms + [group_transform]
 
+        new_clip_rect = clip_rect
+        clip_path_attr = elem.get('clip-path')
+        if clip_path_attr:
+            local_rect = _resolve_clip_rect_local(clip_path_attr, all_defs)
+            if local_rect is not None:
+                abs_rect = _transform_rect(local_rect, new_transforms)
+                new_clip_rect = _intersect_rects(clip_rect, abs_rect)
+
         for child in elem:
             _process_element_recursive(
                 child, page_data, glyph_defs, font_variants,
                 all_defs, new_transforms, page_y_offset, glyph_ids,
+                new_clip_rect,
             )
         return
 
@@ -1253,6 +1393,7 @@ def _process_element_recursive(
                 _process_element_recursive(
                     ref_elem, page_data, glyph_defs, font_variants,
                     all_defs, new_transforms, page_y_offset, glyph_ids,
+                    clip_rect,
                 )
         return
 
@@ -1271,6 +1412,7 @@ def _process_element_recursive(
             tag=tag,
             element=elem,
             is_glyph_path=False,
+            clip_rect=clip_rect,
         )
 
         # Store the accumulated transforms for later processing
@@ -1284,7 +1426,7 @@ def _process_element_recursive(
         _process_element_recursive(
             child, page_data, glyph_defs, font_variants,
             all_defs, parent_transforms + [parse_transform(elem.get('transform'))],
-            page_y_offset, glyph_ids,
+            page_y_offset, glyph_ids, clip_rect,
         )
 
 
