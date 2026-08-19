@@ -2568,8 +2568,24 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
             if hex_color:
                 run.font.color.rgb = RGBColor.from_string(hex_color)
 
-        # Set text frame auto-size
-        tf.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
+        # NOT SHAPE_TO_FIT_TEXT: that autofit mode is what actually causes
+        # wrapping here despite word_wrap=False above -- confirmed directly
+        # (toggling only this, same width, made the difference) on a real
+        # deck where a headline's declared width (Typst's own measurement,
+        # scaled) was nowhere near the width LibreOffice's font substitute
+        # actually needed (Cormorant Garamond Bold resolved to Arial Black
+        # -- a real local font-matching quirk (confirmed via fc-match
+        # correctly resolving it, so it's LibreOffice/CoreText-side, not a
+        # bad font file), but the general lesson generalizes: ANY viewer
+        # without the exact original font is a real, unpredictable risk for
+        # single-line boxes this tight). NONE lets an oversized line
+        # overflow past the box horizontally -- visually imperfect in the
+        # worst case, but never the wrap-into-the-next-line collision that
+        # SHAPE_TO_FIT_TEXT produces. The width-safety-margin above still
+        # matters (keeps the DECLARED box reasonable for anyone editing the
+        # file later); this is the robustness backstop for when it isn't
+        # enough.
+        tf.auto_size = MSO_AUTO_SIZE.NONE
 
         # Remove margins
         tf.margin_left = Emu(0)
