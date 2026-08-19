@@ -2271,7 +2271,7 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                 # "text" mode: Render display math as text (Cambria Math runs)
                 self._render_math_groups(display_math, text_segments, slide)
 
-    def _detect_alignment(self, line_segs: list, page_width: float) -> str:
+    def _detect_alignment(self, line_segs: list, page_width: float, common_lefts: set = None) -> str:
         """Detect text alignment from segment positions relative to page width.
 
         Returns 'left', 'center', or 'right'.
@@ -2280,6 +2280,15 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
             return 'left'
 
         line_left = min(s.x for s in line_segs)
+
+        # A left edge shared with another line on the page is direct
+        # evidence of left alignment -- see the call site in
+        # _render_text_groups for the full rationale. This check wins over
+        # the page-width-relative heuristics below, which have no way to
+        # tell "coincidentally centered on the full page" apart from
+        # "left-aligned within an offset column."
+        if common_lefts and round(line_left, 1) in common_lefts:
+            return 'left'
         line_right = max(s.x + s.width for s in line_segs)
         line_center = (line_left + line_right) / 2
         line_width = line_right - line_left
@@ -2303,9 +2312,25 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                     return 'center'
 
         # Check right alignment: right edge near page right margin
-        # and substantial left margin
+        # and substantial left margin. Also require the line to be
+        # comfortably short relative to the page -- a long prose line
+        # (justified body text, common when the content column itself is
+        # offset by a sidebar/rail rather than spanning the full page) can
+        # legitimately end up with its right edge close to the page edge
+        # by coincidence, without being intentionally right-aligned. Real
+        # right-aligned content (a page number, a right-set label/date) is
+        # short; requiring line_width comfortably under the existing
+        # "fills most of the width" bail-out (0.7 above) avoids that false
+        # positive -- confirmed on a real deck where a justified paragraph's
+        # non-final lines (line_width/page_width ~= 0.54) were misdetected
+        # as right-aligned, each shifting by a different amount and
+        # visually colliding with the line below.
         right_margin = page_width - line_right
-        if right_margin < page_width * 0.08 and line_left > page_width * 0.25:
+        if (
+            right_margin < page_width * 0.08
+            and line_left > page_width * 0.25
+            and line_width < page_width * 0.35
+        ):
             return 'right'
 
         return 'left'
@@ -2332,6 +2357,26 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 
         # Merge inline math sub/superscripts into their adjacent text lines
         line_groups = _merge_inline_math_subscripts(line_groups)
+
+        # Shared left edges across multiple lines are strong, direct
+        # evidence of intentional left alignment (or justification, which
+        # also keeps a consistent left edge) -- far more reliable than
+        # _detect_alignment's single-line heuristics, which only have this
+        # one line's position relative to the FULL page width to go on.
+        # That matters because many layouts offset their real content
+        # column away from the page edge (a sidebar/rail), so a line can
+        # coincidentally look "centered" or "right-aligned" relative to the
+        # full page while actually being plain left-aligned within its own
+        # (narrower, offset) column -- confirmed on a real deck where a
+        # short single-word headline wrap ("Systems") landed within 3% of
+        # the page's horizontal center purely by coincidence of its own
+        # width and the column's offset, and got center-aligned instead of
+        # matching the other headline lines' shared left edge.
+        from collections import Counter
+        left_edge_counts = Counter(
+            round(min(s.x for s in line), 1) for line in line_groups if line
+        )
+        common_lefts = {x for x, count in left_edge_counts.items() if count >= 2}
 
         # Detect and merge paragraph lines (opt-in via ConversionConfig).
         # When detect_paragraphs is False (the default), each visual line stays
@@ -2368,8 +2413,25 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                     max_font_size = max(s.font_size for s in line_segs)
                     merged_h = max_font_size * 1.3
 
+                # Safety margin: this box's width is Typst's OWN measured
+                # width for this exact text at this exact font, but the
+                # PowerPoint side almost never has the identical font file
+                # (different vendor build / hinting / version of "the same"
+                # family) -- a slightly wider real render than Typst
+                # measured, combined with these single-line boxes' <a:spAutoFit/>,
+                # makes LibreOffice wrap the overflow onto a second line
+                # DESPITE wrap="none" and reflow it right into the next
+                # line's box. Confirmed on a real deck: a body-text line
+                # ending in "...that agents " rendered "agents" detached,
+                # overlapping the line below, and padding the box width
+                # alone (no other change) fixed it outright. 15% comfortably
+                # covers realistic cross-font metric drift for one line of
+                # text without visibly disturbing layout (extra room grows
+                # to the right of left-aligned text, the common case).
+                merged_w *= 1.15
+
                 # Detect alignment
-                alignment = self._detect_alignment(line_segs, page_width)
+                alignment = self._detect_alignment(line_segs, page_width, common_lefts=common_lefts)
 
                 self._add_textbox(slide, line_segs, merged_x, merged_y, merged_w, merged_h,
                                   alignment=alignment)
