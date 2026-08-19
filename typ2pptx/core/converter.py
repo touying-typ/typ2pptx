@@ -2449,18 +2449,49 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                 # to the right of left-aligned text, the common case).
                 merged_w *= 1.15
 
+                # Clamp to the page boundary: the padding above can push a
+                # line that was already close to the page edge in Typst's
+                # OWN layout past it in the PPTX render -- confirmed on a
+                # real deck where a body-page heading that fit comfortably
+                # in the source PDF got clipped off the right edge of the
+                # slide entirely once padded, silently losing text (worse
+                # than a wrap, which is at least visible). When clamping
+                # would make the box narrower than the line actually needs,
+                # allow this ONE box to wrap after all, but give it enough
+                # extra height headroom (not just autofit growth, which is
+                # exactly the mechanism that caused the original overlap
+                # bug) that a genuine 2-line wrap still doesn't reach into
+                # whatever sits below it.
+                page_margin = page_width * 0.02 if page_width > 0 else 0
+                needs_wrap = False
+                if page_width > 0 and merged_x + merged_w > page_width - page_margin:
+                    available = max(1.0, page_width - page_margin - merged_x)
+                    if available < merged_w:
+                        needs_wrap = True
+                    merged_w = available
+
                 # Detect alignment
                 alignment = self._detect_alignment(line_segs, page_width, common_lefts=common_lefts)
 
                 self._add_textbox(slide, line_segs, merged_x, merged_y, merged_w, merged_h,
-                                  alignment=alignment)
+                                  alignment=alignment, allow_wrap=needs_wrap)
 
     def _add_textbox(self, slide, line_segs: list, x: float, y: float, w: float, h: float,
-                     alignment: str = 'left'):
-        """Add a textbox with multiple runs to the slide."""
+                     alignment: str = 'left', allow_wrap: bool = False):
+        """Add a textbox with multiple runs to the slide.
+
+        allow_wrap: set when the caller already clamped w to the page
+        boundary and that clamp left less room than the line needs (see
+        _render_text_groups). w/h in that case are the CLAMPED single-line
+        values, not sized for 2 lines -- give the box real height headroom
+        here so an actual wrap has somewhere to go besides the line below.
+        """
         from pptx.util import Emu, Pt
         from pptx.dml.color import RGBColor
         from pptx.enum.text import MSO_AUTO_SIZE, PP_ALIGN
+
+        if allow_wrap:
+            h *= 1.8
 
         # Convert to EMU
         left = Emu(int(x * self._emu_per_px))
@@ -2480,7 +2511,7 @@ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 
         txBox = slide.shapes.add_textbox(left, top, width, height)
         tf = txBox.text_frame
-        tf.word_wrap = False
+        tf.word_wrap = allow_wrap
 
         # Precompute baseline info for superscript/subscript detection
         # Find the dominant (most common / largest) font size for anchor baseline
