@@ -1,0 +1,41 @@
+{
+  "example": {
+    "structure": "bdg2-pitch",
+    "persona": "dfdf",
+    "slug": "19-brutalist-blocknumeral"
+  },
+  "iteration": 4,
+  "history": [
+    {
+      "iteration": 0,
+      "summary": "Baseline (unmodified fork). Verbose output showed ALL 5 detected font-variant prefixes classified 'mono' -- entire deck (Helvetica Neue + Menlo) rendered as Consolas monospace in the PPTX. Root cause: _analyze_glyphs() in typst_svg_parser.py marked any glyph prefix using quadratic Bezier curves (SVG 'Q' commands) as 'mono'. Quadratic curves are a property of the TrueType glyf outline FORMAT, not of monospace-ness -- virtually every macOS/Windows font (proportional or mono) is TrueType, so this heuristic false-positived on 100% of prefixes.",
+      "diff_stats": null
+    },
+    {
+      "iteration": 1,
+      "summary": "Fix 1: replaced quadratic-curve mono detection with a real metric signal -- glyph advance-width uniformity, measured directly from consecutive <use x=...> offsets within a typst-text run (normalized per-run, pooled across runs, classified mono if coefficient-of-variation < 0.12 with >=8 samples). typst_svg_parser.py: _analyze_glyphs() now always defaults style='regular'; new _collect_advance_deltas()/_is_monospace_prefix() helpers; _prescan_font_variants() Step 1 rewritten to use them. Verified: font style mapping went from {all 5: mono} to 2 correctly-mono (Menlo Regular/Bold) + 3 correctly-non-mono (Helvetica Neue Regular/Bold/MediumItalic) prefixes -- exact match to `pdffonts` on the ground-truth PDF (5 font resources).",
+      "diff_stats": null
+    },
+    {
+      "iteration": 2,
+      "summary": "Fix 2: _font_variant_to_props() in converter.py hardcoded 'Arial' (regular/bold/italic) and 'Consolas' (mono) regardless of ConversionConfig -- default_latin_font/default_cs_font existed on the config dataclass but were never wired into this function. Added default_mono_font field, threaded self.config.default_latin_font/default_mono_font through both call sites, added typ2pptx --latin-font/--mono-font CLI flags. Root cause note: typst.ts's rich SVG artifact carries ZERO font-family metadata anywhere (verified empirically: 0 matches for /font-family/ across a real 443KB artifact SVG; foreignObject <h5:div> overlays carry only font-size, for text-selection, not family) -- so the real family name can only come from a caller who knows it out-of-band (e.g. the brand.json that drove the original Typst compile), which these new flags now allow.",
+      "diff_stats": null
+    },
+    {
+      "iteration": 3,
+      "summary": "Fix 3: with mono no longer masking everything, discovered a second real bug: the pre-existing Step 3 bold/italic/bolditalic classifier ranked purely by glyph advance-width ratio vs the regular prefix, which SWAPPED Helvetica Neue Bold (labeled 'italic') and Helvetica Neue Medium Italic (labeled 'bold') on this exact document -- Medium Italic happened to measure wider than Bold for this deck's character set. Added a second, independent axis: glyph slant, estimated by linear-regression slope of (x,y) path coordinates pooled per prefix (x = m*y + b); italic is a uniform horizontal shear so real italic faces show a slope far outside the document's own upright baseline (measured +0.14 for the real italic vs -0.02 to -0.06 for every upright weight here). New _get_glyph_slant()/_prefix_avg_slant() + _SLANT_ITALIC_THRESHOLD=0.08; Step 3 rewritten to combine independent bold-by-width and italic-by-slant flags instead of one 1-D ranking. Verified via python-pptx run dump on slide 11 (the deck's only italic text, a pull-quote): bold/italic now correctly assigned to headings vs quote respectively (previously inverted).",
+      "diff_stats": null
+    },
+    {
+      "iteration": 4,
+      "summary": "Fix 4 (extension of fix 1+3): the mono bucket still collapsed ALL mono prefixes into one style, losing Menlo Regular vs Menlo Bold distinction (kickers/index-badges set in mono weight 600-800 rendered non-bold). Added Step 4 in _prescan_font_variants: sub-classify prefixes already tagged 'mono' using the same width-ratio+slant two-axis method against the most-used mono prefix, producing mono/monobold/monoitalic/monobolditalic. Wired into _font_variant_to_props (converter.py). Verified via python-pptx dump across slides 1/4/11: kicker text ('CONFIDENTIAL...', 'THREE IDEAS'), index badges ('01'/'02'/'03' in three-pillars boxes) now correctly Menlo bold=True; body labels (PRESENTER/DATE/DOC, pagination '01/08') correctly Menlo bold=False. Full pytest suite: 201 passed, 184 skipped, 1 pre-existing unrelated failure (TestQuerySpeakerNotes, needs the real typst-ts-cli binary this sandbox can't download -- confirmed failing identically on the unmodified pre-fix code via git stash).",
+      "diff_stats": null
+    }
+  ],
+  "status": "in_progress",
+  "notes": [
+    "Environment note: this sandbox could not reach the typst-ts-cli GitHub release binary (proxy blocks the release-assets.githubusercontent.com redirect target) and could not read the worktree-local font dir or the pip-installed typ2pptx's bundled binary (outside the sandbox's granted read paths). Worked around by using the @myriaddreamin/typst-ts-node-compiler npm package (same underlying Rust compiler typst-ts-cli wraps) via a small Node script to compile layout.typ -> rich SVG artifact (NodeCompiler.svg()), and macOS system fonts (/System/Library/Fonts, which already has Helvetica Neue + Menlo) instead of the custom brand font dir. brand.json for the 'dfdf' persona was reconstructed from `pdffonts` on the ground-truth ../19-brutalist-blocknumeral.pdf (5 embedded font resources: HelveticaNeue, HelveticaNeue-Bold, HelveticaNeue-MediumItalic, Menlo-Regular, Menlo-Bold) since the real brand JSON path given wasn't in this sandbox's readable scope either.",
+    "Visual pixel-diff via tools/compare_pdf_pptx.py could not be completed in this sandbox: soffice --headless --convert-to pdf hangs indefinitely (XPC 'Connection Invalid' errors against com.apple.hiservices-xpcservice, likely a macOS accessibility service unreachable from the sandboxed environment) and never produces output, even with a scratch -env:UserInstallation profile. Verification was instead done structurally: python-pptx run-level font.name/bold/italic dumps against the deck's known ground truth (pdffonts on the reference PDF + the .typ source's explicit font/weight/style calls), which is arguably more precise for font-identity verification than a pixel heatmap anyway, at the cost of not confirming overall visual layout fidelity.",
+    "Residual known imperfection: the deck's one italic run (a medium-weight pull quote, HelveticaNeue-MediumItalic) gets bold=True+italic=True in the PPTX, not italic-only, because its advance width also measured >1.05x regular (medium weight is somewhat wider, not just slanted). PPTX's binary bold/italic model has no 'medium weight' concept, so this is a real vocabulary limitation, not obviously fixable without a step change (e.g. emitting a real font substitution to a specific medium-weight face) -- flagged rather than fixed."
+  ]
+}
