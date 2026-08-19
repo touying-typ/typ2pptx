@@ -4,7 +4,7 @@
     "persona": "dfdf",
     "slug": "19-brutalist-blocknumeral"
   },
-  "iteration": 6,
+  "iteration": 8,
   "history": [
     {
       "iteration": 0,
@@ -54,9 +54,14 @@
         "overall_max_pct_pixels_changed": 25.216,
         "note": "score misleading here -- see summary; visual check is the real signal for this fix"
       }
+    },
+    {
+      "iteration": 8,
+      "summary": "Implemented and shipped the display-font fix (size-ratio '-display' classification + --display-font flag, converter.py/typst_svg_parser.py/__main__.py) after confirming the collapse was a real functional bug (Inter forced onto a Cormorant Garamond headline caused text to wrap an extra line and visually collide with the subtitle -- not just a vibe mismatch). Full pytest: 202 passed, 184 skipped, 0 new failures.\n\nRegenerated ALL 200 production decks (2 structures x 5 brands x 20 layouts) through the fixed local fork with correct per-persona --latin-font/--mono-font/--display-font (from real brand.json fonts.body/mono/display) and --font-size-scale 1.0. Hit and fixed a bash empty-array-under-set-u bug in the generation script (macOS bash 3.2), affecting the 2 personas (luminance, dfdf) whose display font equals their body font. Final: 200/200 succeeded.\n\nMechanical verification across all 200 delivered files (python-pptx): 0 files with wrong slide size, 0 runs still carrying the old hardcoded Arial/Consolas defaults, font usage across the corpus exactly matches the 5 personas' real brand fonts (IBM Plex Sans/Serif/Mono, Inter, Cormorant Garamond, Helvetica Neue, Menlo, JetBrains Mono) with correct counts. This is the strongest verification signal -- checks the actual XML data in all 200 files, not a sample.\n\nKnown caveat, not a fork defect: this machine's local soffice/CoreText font matching substitutes Arial-Black for Cormorant-Garamond-Bold specifically, despite the font being installed and fc-list finding it -- reproduced 3x (default profile, forced font-cache refresh, completely fresh -env:UserInstallation profile), always the same substitution. Confirmed via direct python-pptx/XML inspection each time that the PPTX itself correctly carries font.name=='Cormorant Garamond' -- this is a local verification-tool rendering quirk for this one font+weight combination, not something wrong with the generated files. Not investigated further (diminishing returns on a test-harness-only issue); worth a fresh look if it recurs.",
+      "diff_stats": null
     }
   ],
-  "status": "converged_pending_broader_check",
+  "status": "done",
   "notes": [
     "Environment note: this sandbox could not reach the typst-ts-cli GitHub release binary (proxy blocks the release-assets.githubusercontent.com redirect target) and could not read the worktree-local font dir or the pip-installed typ2pptx's bundled binary (outside the sandbox's granted read paths). Worked around by using the @myriaddreamin/typst-ts-node-compiler npm package (same underlying Rust compiler typst-ts-cli wraps) via a small Node script to compile layout.typ -> rich SVG artifact (NodeCompiler.svg()), and macOS system fonts (/System/Library/Fonts, which already has Helvetica Neue + Menlo) instead of the custom brand font dir. brand.json for the 'dfdf' persona was reconstructed from `pdffonts` on the ground-truth ../19-brutalist-blocknumeral.pdf (5 embedded font resources: HelveticaNeue, HelveticaNeue-Bold, HelveticaNeue-MediumItalic, Menlo-Regular, Menlo-Bold) since the real brand JSON path given wasn't in this sandbox's readable scope either.",
     "Visual pixel-diff via tools/compare_pdf_pptx.py could not be completed in this sandbox: soffice --headless --convert-to pdf hangs indefinitely (XPC 'Connection Invalid' errors against com.apple.hiservices-xpcservice, likely a macOS accessibility service unreachable from the sandboxed environment) and never produces output, even with a scratch -env:UserInstallation profile. Verification was instead done structurally: python-pptx run-level font.name/bold/italic dumps against the deck's known ground truth (pdffonts on the reference PDF + the .typ source's explicit font/weight/style calls), which is arguably more precise for font-identity verification than a pixel heatmap anyway, at the cost of not confirming overall visual layout fidelity.",
